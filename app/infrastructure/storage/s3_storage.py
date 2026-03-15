@@ -44,6 +44,20 @@ class S3ObjectStorage(ObjectStorage):
             ),
         )
 
+    def _run_with_retry(self, operation):
+        """Run a storage operation with storage-specific retry policy."""
+
+        for attempt in Retrying(
+            stop=stop_after_attempt(self._settings.s3_max_retry_attempts),
+            wait=wait_exponential(multiplier=1, min=1, max=8),
+            retry=retry_if_exception_type((BotoCoreError, ClientError)),
+            reraise=True,
+        ):
+            with attempt:
+                return operation()
+
+        raise StorageOperationError("Storage operation failed after retries.")
+
     def upload_bytes(
         self,
         *,
@@ -54,19 +68,14 @@ class S3ObjectStorage(ObjectStorage):
         """Upload bytes to the configured bucket."""
 
         try:
-            for attempt in Retrying(
-                stop=stop_after_attempt(self._settings.openai_max_retry_attempts),
-                wait=wait_exponential(multiplier=1, min=1, max=8),
-                retry=retry_if_exception_type((BotoCoreError, ClientError)),
-                reraise=True,
-            ):
-                with attempt:
-                    self._upload_client.put_object(
-                        Bucket=self._settings.s3_bucket_name,
-                        Key=storage_key,
-                        Body=content_bytes,
-                        ContentType=content_type,
-                    )
+            self._run_with_retry(
+                lambda: self._upload_client.put_object(
+                    Bucket=self._settings.s3_bucket_name,
+                    Key=storage_key,
+                    Body=content_bytes,
+                    ContentType=content_type,
+                )
+            )
         except (BotoCoreError, ClientError) as error:
             raise StorageOperationError("Failed to upload image to object storage.") from error
 
@@ -83,7 +92,12 @@ class S3ObjectStorage(ObjectStorage):
         """Delete an object from storage."""
 
         try:
-            self._upload_client.delete_object(Bucket=self._settings.s3_bucket_name, Key=storage_key)
+            self._run_with_retry(
+                lambda: self._upload_client.delete_object(
+                    Bucket=self._settings.s3_bucket_name,
+                    Key=storage_key,
+                )
+            )
         except (BotoCoreError, ClientError) as error:
             raise StorageOperationError("Failed to delete object from storage.") from error
 
@@ -94,10 +108,12 @@ class S3ObjectStorage(ObjectStorage):
             return f"{self._settings.s3_public_base_url.rstrip('/')}/{quote(storage_key, safe='/')}"
 
         try:
-            return self._read_client.generate_presigned_url(
-                ClientMethod="get_object",
-                Params={"Bucket": self._settings.s3_bucket_name, "Key": storage_key},
-                ExpiresIn=self._settings.s3_presigned_url_expiration_seconds,
+            return self._run_with_retry(
+                lambda: self._read_client.generate_presigned_url(
+                    ClientMethod="get_object",
+                    Params={"Bucket": self._settings.s3_bucket_name, "Key": storage_key},
+                    ExpiresIn=self._settings.s3_presigned_url_expiration_seconds,
+                )
             )
         except (BotoCoreError, ClientError) as error:
             raise StorageOperationError("Failed to generate object read URL.") from error
@@ -105,5 +121,7 @@ class S3ObjectStorage(ObjectStorage):
     def check_bucket_access(self) -> bool:
         """Check whether the configured bucket is reachable."""
 
-        self._upload_client.head_bucket(Bucket=self._settings.s3_bucket_name)
+        self._run_with_retry(
+            lambda: self._upload_client.head_bucket(Bucket=self._settings.s3_bucket_name)
+        )
         return True

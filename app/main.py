@@ -33,10 +33,14 @@ def create_app() -> FastAPI:
     """Create the configured FastAPI application."""
 
     settings = get_settings()
+    is_docs_enabled = settings.app_debug or settings.app_environment == "development"
     application = FastAPI(
         title=settings.app_name,
         debug=settings.app_debug,
         lifespan=lifespan,
+        docs_url="/docs" if is_docs_enabled else None,
+        redoc_url="/redoc" if is_docs_enabled else None,
+        openapi_url="/openapi.json" if is_docs_enabled else None,
     )
 
     application.add_middleware(RequestContextMiddleware)

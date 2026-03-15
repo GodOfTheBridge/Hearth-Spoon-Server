@@ -97,6 +97,40 @@ def test_generation_service_is_idempotent_for_the_same_slot(sqlite_session_facto
     assert second_result.recipe.id == first_result.recipe.id
 
 
+def test_prepare_background_generation_does_not_reenqueue_pending_job(
+    sqlite_session_factory,
+) -> None:
+    """Preparing the same slot twice should not claim a second enqueue while the job is pending."""
+
+    text_provider = FakeRecipeTextGenerationProvider(payload=build_generated_recipe_payload())
+    image_provider = FakeRecipeImageGenerationProvider()
+    object_storage = FakeObjectStorage()
+    generation_service = build_generation_service(
+        sqlite_session_factory=sqlite_session_factory,
+        text_provider=text_provider,
+        image_provider=image_provider,
+        object_storage=object_storage,
+    )
+
+    slot_time_utc = datetime(2026, 3, 15, 15, 0, tzinfo=UTC)
+    first_dispatch_result = generation_service.prepare_background_generation(
+        slot_time_utc=slot_time_utc,
+        requested_by="test-suite",
+    )
+    second_dispatch_result = generation_service.prepare_background_generation(
+        slot_time_utc=slot_time_utc,
+        requested_by="test-suite",
+    )
+
+    assert first_dispatch_result.was_enqueued is True
+    assert first_dispatch_result.job.status == GenerationJobStatus.PENDING
+    assert second_dispatch_result.was_enqueued is False
+    assert second_dispatch_result.job.status == GenerationJobStatus.PENDING
+    assert second_dispatch_result.job.id == first_dispatch_result.job.id
+    assert text_provider.call_count == 0
+    assert image_provider.call_count == 0
+
+
 class FailingRecipeRepository(SqlAlchemyRecipeRepository):
     """Repository that fails after recipe creation to test compensation."""
 

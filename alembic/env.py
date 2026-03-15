@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy import engine_from_config, pool
 
@@ -16,10 +17,32 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-database_url = os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
-if not database_url:
-    raise RuntimeError("DATABASE_URL is not configured for Alembic.")
-config.set_main_option("sqlalchemy.url", database_url)
+
+def load_database_url() -> str:
+    """Load DATABASE_URL from the environment or the repository .env file."""
+
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        return database_url
+
+    dotenv_path = Path(__file__).resolve().parents[1] / ".env"
+    if dotenv_path.exists():
+        for raw_line in dotenv_path.read_text(encoding="utf-8").splitlines():
+            stripped_line = raw_line.strip()
+            if not stripped_line or stripped_line.startswith("#") or "=" not in stripped_line:
+                continue
+
+            key, value = stripped_line.split("=", maxsplit=1)
+            if key.strip() != "DATABASE_URL":
+                continue
+            return value.strip().strip('"').strip("'")
+
+    raise RuntimeError(
+        "DATABASE_URL is not configured for Alembic. Export it explicitly or create a .env file."
+    )
+
+
+config.set_main_option("sqlalchemy.url", load_database_url())
 
 target_metadata = Base.metadata
 

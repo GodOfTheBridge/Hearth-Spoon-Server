@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.application.models import GenerationDispatchResult
 from app.domain.entities import GenerationJob
@@ -17,6 +17,17 @@ class RunGenerationNowRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     slot_time_utc: datetime | None = None
+
+    @field_validator("slot_time_utc")
+    @classmethod
+    def validate_timezone_aware_slot_time(cls, raw_value: datetime | None) -> datetime | None:
+        """Reject naive datetimes so slot normalization is explicit and deterministic."""
+
+        if raw_value is None:
+            return None
+        if raw_value.tzinfo is None:
+            raise ValueError("slot_time_utc must be timezone-aware.")
+        return raw_value
 
 
 class GenerationJobResponse(BaseModel):

@@ -146,7 +146,11 @@ class OpenAIClientWrapper:
                 f"OpenAI image generation failed with status {error.status_code}."
             ) from error
 
-        image_payload = response.data[0]
+        response_data = getattr(response, "data", None)
+        if not isinstance(response_data, list) or not response_data:
+            raise ExternalProviderError("OpenAI image generation returned no image payloads.")
+
+        image_payload = response_data[0]
         encoded_image = getattr(image_payload, "b64_json", None)
         if not encoded_image:
             raise ExternalProviderError("OpenAI image generation did not return image bytes.")

@@ -167,15 +167,25 @@ curl -H "Authorization: Bearer YOUR_ADMIN_TOKEN" http://localhost:8000/api/v1/ad
 
 ## Запуск через Docker Compose
 
-### Полный stack
+### Default API stack
 
 ```bash
 docker compose up --build
 ```
 
-`migrate` runs automatically before `api` and `worker`.
+This starts the default HTTP stack: `postgres`, `redis`, `minio`, `minio-init`, `migrate`, `api`, and `nginx`.
+The `worker` service is intentionally profile-gated and is not started by default.
 
 Снаружи будет доступен Nginx на `http://localhost`.
+MinIO S3 access is bound to loopback by default via `127.0.0.1:9000` for safer local development.
+
+### Worker profile in Compose
+
+```bash
+docker compose --profile worker up --build worker
+```
+
+For production hourly generation, prefer cron plus `docker compose run --rm worker ...` rather than a long-lived worker container.
 
 ### Миграции в Compose
 
@@ -214,7 +224,7 @@ curl -X POST \
   -d '{}'
 ```
 
-Endpoint now returns `202 Accepted`, creates or reuses a job for the target slot, and runs generation in the background. Poll the job via `GET /api/v1/admin/generations/{job_id}`.
+Endpoint now returns `202 Accepted`, creates or reuses a job for the target slot, and attempts best-effort in-process background execution on the current API instance. Poll the job via `GET /api/v1/admin/generations/{job_id}`.
 For the durable production path, prefer the hourly worker CLI under cron.
 
 ### Через CLI

@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import AliasChoices, Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     s3_access_key_id: str = Field(validation_alias=AliasChoices("S3_ACCESS_KEY_ID"))
     s3_secret_access_key: SecretStr = Field(validation_alias=AliasChoices("S3_SECRET_ACCESS_KEY"))
     s3_use_ssl: bool = Field(default=False, validation_alias=AliasChoices("S3_USE_SSL"))
+    s3_max_retry_attempts: int = Field(
+        default=3,
+        validation_alias=AliasChoices("S3_MAX_RETRY_ATTEMPTS"),
+    )
     s3_public_base_url: str | None = Field(
         default=None, validation_alias=AliasChoices("S3_PUBLIC_BASE_URL")
     )
@@ -186,6 +190,20 @@ class Settings(BaseSettings):
         if len(raw_value.get_secret_value().strip()) < 24:
             raise ValueError("ADMIN_BEARER_TOKEN must be at least 24 characters long.")
         return raw_value
+
+    @model_validator(mode="after")
+    def validate_production_safety_flags(self) -> Settings:
+        """Reject unsafe flag combinations for real environments."""
+
+        if self.auto_publish_generated_recipes and self.app_environment not in {
+            "development",
+            "staging",
+            "test",
+        }:
+            raise ValueError(
+                "AUTO_PUBLISH_GENERATED_RECIPES is allowed only in development, staging, or test."
+            )
+        return self
 
 
 @lru_cache(maxsize=1)

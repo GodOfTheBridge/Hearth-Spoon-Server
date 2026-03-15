@@ -165,3 +165,23 @@ def test_admin_generation_returns_conflict_when_lock_is_unavailable() -> None:
         assert response.status_code == 409
         assert text_provider.call_count == 0
         assert image_provider.call_count == 0
+
+
+def test_admin_generation_rejects_naive_slot_time() -> None:
+    """Manual generation should reject naive datetimes instead of guessing the host timezone."""
+
+    application = create_app()
+
+    with TestClient(application) as client:
+        text_provider, image_provider, _ = configure_test_container(application)
+        headers = build_admin_headers()
+
+        response = client.post(
+            "/api/v1/admin/generations/run-now",
+            headers=headers,
+            json={"slot_time_utc": "2026-03-15T14:00:00"},
+        )
+
+        assert response.status_code == 422
+        assert text_provider.call_count == 0
+        assert image_provider.call_count == 0

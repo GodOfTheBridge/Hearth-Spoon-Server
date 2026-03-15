@@ -15,6 +15,7 @@ Use it as a release gate, not as optional reading.
 - PostgreSQL, Redis, and S3-compatible storage credentials are not local defaults.
 - TLS termination is configured in front of the public API.
 - The object storage bucket is private by default unless a deliberate public-CDN design is used.
+- Only the intended public ingress is exposed externally; internal data services are not bound to public interfaces.
 - Firewall rules expose only the intended public ports.
 - Database backups are configured.
 - Logs are persisted or shipped somewhere operators can inspect them.

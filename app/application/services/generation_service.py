@@ -178,6 +178,28 @@ class RecipeGenerationService:
                     ),
                 )
 
+            existing_job = self._load_job_by_idempotency_key(idempotency_key)
+            if existing_job is not None and existing_job.status in {
+                GenerationJobStatus.PENDING,
+                GenerationJobStatus.COMPLETED,
+            }:
+                existing_recipe = None
+                if existing_job.status == GenerationJobStatus.COMPLETED:
+                    existing_recipe = self._load_recipe_from_job(
+                        existing_job.provider_response_metadata
+                    )
+
+                return GenerationDispatchResult(
+                    slot_time_utc=normalized_slot_time_utc,
+                    job=existing_job,
+                    recipe=existing_recipe,
+                    was_enqueued=False,
+                    message=self._build_dispatch_message(
+                        job_status=existing_job.status,
+                        was_enqueued=False,
+                    ),
+                )
+
             _, job = self._prepare_job(
                 slot_time_utc=normalized_slot_time_utc,
                 idempotency_key=idempotency_key,
@@ -286,13 +308,18 @@ class RecipeGenerationService:
                 if self._settings.auto_publish_generated_recipes
                 else PublicationStatus.DRAFT
             )
+            moderation_status = (
+                ModerationStatus.APPROVED
+                if publication_status == PublicationStatus.PUBLISHED
+                else ModerationStatus.PENDING
+            )
             published_at = now_utc if publication_status == PublicationStatus.PUBLISHED else None
 
             create_recipe_command = CreateRecipeCommand(
                 generated_recipe=generated_recipe,
                 source_generation_parameters=generation_parameters,
                 image_prompt=image_prompt,
-                moderation_status=ModerationStatus.PENDING,
+                moderation_status=moderation_status,
                 publication_status=publication_status,
                 published_at=published_at,
             )
@@ -664,9 +691,12 @@ class RecipeGenerationService:
     @staticmethod
     def _build_dispatch_message(*, job_status, was_enqueued: bool) -> str:
         if was_enqueued:
-            return "Generation was queued for background execution."
+            return (
+                "Generation was accepted for best-effort in-process background execution. "
+                "Use the scheduler CLI for the durable production path."
+            )
         if job_status == GenerationJobStatus.COMPLETED:
             return "Generation for this slot has already completed."
         if job_status == GenerationJobStatus.RUNNING:
             return "Generation for this slot is already running."
-        return "Generation for this slot is already queued."
+        return "Generation for this slot has already been prepared for background execution."

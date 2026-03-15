@@ -7,7 +7,7 @@ from enum import Enum
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy import ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.domain.enums import (
@@ -34,6 +34,10 @@ class RecipeModel(Base):
     """Recipe persistence model."""
 
     __tablename__ = "recipes"
+    __table_args__ = (
+        Index("ix_recipes_publication_status", "publication_status"),
+        Index("ix_recipes_published_at", "published_at"),
+    )
 
     id: Mapped[UUID] = mapped_column(sa.Uuid(as_uuid=True), primary_key=True, default=uuid4)
     title: Mapped[str] = mapped_column(sa.String(length=255))
@@ -77,7 +81,10 @@ class RecipeImageModel(Base):
     """Recipe image persistence model."""
 
     __tablename__ = "recipe_images"
-    __table_args__ = (UniqueConstraint("recipe_id", name="uq_recipe_images_recipe_id"),)
+    __table_args__ = (
+        UniqueConstraint("recipe_id", name="uq_recipe_images_recipe_id"),
+        Index("ix_recipe_images_storage_key", "storage_key"),
+    )
 
     id: Mapped[UUID] = mapped_column(sa.Uuid(as_uuid=True), primary_key=True, default=uuid4)
     recipe_id: Mapped[UUID] = mapped_column(
@@ -106,6 +113,7 @@ class GenerationScheduleSlotModel(Base):
     __tablename__ = "generation_schedule_slots"
     __table_args__ = (
         UniqueConstraint("slot_time_utc", "generation_type", name="uq_generation_schedule_slot"),
+        Index("ix_generation_schedule_slots_slot_time_utc", "slot_time_utc"),
     )
 
     id: Mapped[UUID] = mapped_column(sa.Uuid(as_uuid=True), primary_key=True, default=uuid4)
@@ -130,6 +138,8 @@ class GenerationJobModel(Base):
     __tablename__ = "generation_jobs"
     __table_args__ = (
         UniqueConstraint("idempotency_key", name="uq_generation_jobs_idempotency_key"),
+        Index("ix_generation_jobs_status", "status"),
+        Index("ix_generation_jobs_schedule_slot_id", "schedule_slot_id"),
     )
 
     id: Mapped[UUID] = mapped_column(sa.Uuid(as_uuid=True), primary_key=True, default=uuid4)

@@ -93,6 +93,10 @@ class Settings(BaseSettings):
         default=1800,
         validation_alias=AliasChoices("GENERATION_LOCK_TIMEOUT_SECONDS"),
     )
+    generation_stale_after_seconds: int = Field(
+        default=2400,
+        validation_alias=AliasChoices("GENERATION_STALE_AFTER_SECONDS"),
+    )
     generation_max_retry_count: int = Field(
         default=3,
         validation_alias=AliasChoices("GENERATION_MAX_RETRY_COUNT"),

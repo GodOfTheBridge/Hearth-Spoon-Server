@@ -114,3 +114,7 @@ def test_latest_recipe_endpoint_returns_published_recipe() -> None:
     payload = response.json()
     assert payload["title"] == "Сливочная паста с грибами"
     assert payload["image"]["url"].endswith("recipes/test/latest.png")
+    assert "storage_key" not in payload["image"]
+    assert "provider_name" not in payload["image"]
+    assert "source_generation_parameters" not in payload
+    assert "image_prompt" not in payload

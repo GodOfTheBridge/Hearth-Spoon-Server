@@ -25,10 +25,8 @@ class AdminRateLimiter:
         """Raise HTTP 429 when the admin request exceeds the configured rate."""
 
         current_minute_bucket = datetime.now(UTC).strftime("%Y%m%d%H%M")
-        client_host = request.client.host if request.client is not None else "unknown"
         rate_limit_key = (
-            "rate-limit:admin:"
-            f"{admin_identity.actor_id}:{client_host}:{request.url.path}:{current_minute_bucket}"
+            f"rate-limit:admin:{admin_identity.actor_id}:{request.url.path}:{current_minute_bucket}"
         )
 
         try:
@@ -36,8 +34,11 @@ class AdminRateLimiter:
             if current_count == 1:
                 self._redis_client.expire(rate_limit_key, 60)
         except redis.RedisError as error:
-            logger.warning("admin.rate_limit.redis_unavailable", error=str(error))
-            return
+            logger.error("admin.rate_limit.redis_unavailable", error=str(error))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Admin rate limiting is temporarily unavailable.",
+            ) from error
 
         if current_count > self._requests_per_minute:
             raise HTTPException(

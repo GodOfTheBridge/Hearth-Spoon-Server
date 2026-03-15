@@ -23,7 +23,9 @@ from tests.fakes.fake_components import (
 from tests.integration.test_public_recipe_api import build_generated_recipe_payload
 
 
-def configure_test_container(application) -> tuple[
+def configure_test_container(
+    application,
+) -> tuple[
     FakeRecipeTextGenerationProvider,
     FakeRecipeImageGenerationProvider,
     FakeObjectStorage,
@@ -69,27 +71,27 @@ def test_admin_generation_happy_path_and_publication_flow() -> None:
             json={"slot_time_utc": slot_time_utc},
         )
 
-        assert generation_response.status_code == 200
+        assert generation_response.status_code == 202
         generation_payload = generation_response.json()
-        assert generation_payload["was_created"] is True
+        assert generation_payload["was_enqueued"] is True
         assert text_provider.call_count == 1
         assert image_provider.call_count == 1
         assert len(object_storage.objects) == 1
 
-        recipe_id = UUID(generation_payload["recipe_id"])
         job_id = UUID(generation_payload["job"]["id"])
 
         with application.state.container.session_factory() as session:
             recipe_repository = SqlAlchemyRecipeRepository(session=session)
             generation_job_repository = SqlAlchemyGenerationJobRepository(session=session)
-            recipe_aggregate = recipe_repository.get_by_id(recipe_id)
             generation_job = generation_job_repository.get_by_id(job_id)
+
+            assert generation_job is not None
+            assert generation_job.status == "completed"
+            recipe_id = UUID(generation_job.provider_response_metadata["recipe_id"])
+            recipe_aggregate = recipe_repository.get_by_id(recipe_id)
 
             assert recipe_aggregate is not None
             assert recipe_aggregate.image is not None
-            assert generation_job is not None
-            assert generation_job.status == "completed"
-            assert generation_job.provider_response_metadata["recipe_id"] == str(recipe_id)
 
         publish_response = client.post(
             f"/api/v1/admin/recipes/{recipe_id}/publish",
@@ -97,6 +99,9 @@ def test_admin_generation_happy_path_and_publication_flow() -> None:
         )
 
         assert publish_response.status_code == 200
+        publish_payload = publish_response.json()
+        assert publish_payload["image"]["storage_key"]
+        assert publish_payload["image"]["provider_name"] == "fake"
 
         latest_recipe_response = client.get("/api/v1/recipes/latest")
         assert latest_recipe_response.status_code == 200
@@ -104,6 +109,10 @@ def test_admin_generation_happy_path_and_publication_flow() -> None:
         assert latest_recipe_payload["id"] == str(recipe_id)
         assert latest_recipe_payload["title"] == "Сливочная паста с грибами"
         assert latest_recipe_payload["image"]["url"].startswith("https://example.test/")
+        assert "storage_key" not in latest_recipe_payload["image"]
+        assert "provider_name" not in latest_recipe_payload["image"]
+        assert "image_prompt" not in latest_recipe_payload
+        assert "source_generation_parameters" not in latest_recipe_payload
 
 
 def test_admin_generation_returns_existing_result_for_same_slot() -> None:
@@ -127,11 +136,10 @@ def test_admin_generation_returns_existing_result_for_same_slot() -> None:
             json=payload,
         )
 
-        assert first_response.status_code == 200
-        assert second_response.status_code == 200
-        assert first_response.json()["was_created"] is True
-        assert second_response.json()["was_created"] is False
-        assert first_response.json()["recipe_id"] == second_response.json()["recipe_id"]
+        assert first_response.status_code == 202
+        assert second_response.status_code == 202
+        assert first_response.json()["was_enqueued"] is True
+        assert second_response.json()["was_enqueued"] is False
         assert text_provider.call_count == 1
         assert image_provider.call_count == 1
 

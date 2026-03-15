@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -12,6 +12,13 @@ from app.application.services.generation_service import RecipeGenerationService
 from app.application.services.image_prompt_builder import ImagePromptBuilder
 from app.application.services.recipe_prompt_builder import RecipePromptBuilder
 from app.config.settings import get_settings
+from app.domain.enums import (
+    GenerationJobStatus,
+    GenerationJobType,
+    GenerationSlotStatus,
+    GenerationType,
+)
+from app.domain.time import get_current_utc_datetime
 from app.infrastructure.database.repositories.generation_job_repository import (
     SqlAlchemyGenerationJobRepository,
 )
@@ -120,3 +127,64 @@ def test_generation_service_deletes_uploaded_image_on_database_failure(
         generation_service.run_for_slot(slot_time_utc=slot_time_utc, requested_by="test-suite")
 
     assert len(object_storage.deleted_keys) == 1
+
+
+def test_generation_service_recovers_stale_running_job_before_retry(
+    sqlite_session_factory,
+) -> None:
+    """A stale RUNNING job should be recovered and then regenerated."""
+
+    settings = get_settings()
+    text_provider = FakeRecipeTextGenerationProvider(payload=build_generated_recipe_payload())
+    image_provider = FakeRecipeImageGenerationProvider()
+    object_storage = FakeObjectStorage()
+    generation_service = build_generation_service(
+        sqlite_session_factory=sqlite_session_factory,
+        text_provider=text_provider,
+        image_provider=image_provider,
+        object_storage=object_storage,
+    )
+
+    slot_time_utc = datetime(2026, 3, 15, 14, 0, tzinfo=UTC)
+    stale_started_at = get_current_utc_datetime() - timedelta(
+        seconds=settings.generation_stale_after_seconds + 60
+    )
+
+    with sqlite_session_factory() as session:
+        slot_repository = SqlAlchemyGenerationScheduleSlotRepository(session=session)
+        job_repository = SqlAlchemyGenerationJobRepository(session=session)
+
+        schedule_slot = slot_repository.get_or_create_slot(
+            slot_time_utc=slot_time_utc,
+            generation_type=GenerationType.HOURLY_RECIPE,
+        )
+        schedule_slot = slot_repository.update_slot_status(
+            slot_id=schedule_slot.id,
+            status=GenerationSlotStatus.RUNNING,
+            locked_at=stale_started_at,
+        )
+        job = job_repository.create_or_get_job(
+            job_type=GenerationJobType.HOURLY_RECIPE_GENERATION,
+            schedule_slot_id=schedule_slot.id,
+            idempotency_key=f"hourly-recipe:{slot_time_utc.isoformat()}",
+            provider_request_metadata={"requested_by": "stale-test"},
+        )
+        job_repository.update_job_status(
+            job_id=job.id,
+            status=GenerationJobStatus.RUNNING,
+            started_at=stale_started_at,
+            finished_at=None,
+            error_message=None,
+            retry_count=0,
+            provider_request_metadata=job.provider_request_metadata,
+            provider_response_metadata={},
+        )
+        session.commit()
+
+    result = generation_service.run_for_slot(slot_time_utc=slot_time_utc, requested_by="test-suite")
+
+    assert result.was_created is True
+    assert result.job.status == GenerationJobStatus.COMPLETED
+    assert result.job.retry_count == 1
+    assert text_provider.call_count == 1
+    assert image_provider.call_count == 1

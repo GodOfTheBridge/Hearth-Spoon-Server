@@ -53,6 +53,7 @@ The domain layer must not depend on FastAPI, SQLAlchemy sessions, Redis clients,
   - dependency wiring
   - request context and logging
   - auth and rate limiting
+  - lightweight background dispatch for manual admin generation requests
 
 ### Scheduler / worker
 
@@ -100,6 +101,10 @@ High-level flow:
 
 Manual admin generation and scheduled generation must continue to use this same workflow.
 
+`POST /api/v1/admin/generations/run-now` is intentionally non-blocking at the HTTP layer.
+It prepares or reuses the slot job, returns `202 Accepted`, and dispatches the heavy generation work in background code on the API instance.
+The scheduled hourly flow remains outside the web worker lifecycle and continues to run through the CLI worker entrypoint.
+
 ---
 
 ## Idempotency and Anti-Duplicate Strategy
@@ -113,6 +118,7 @@ Current protection layers:
 3. unique slot constraint in PostgreSQL
 4. unique job idempotency key in PostgreSQL
 5. repository-level duplicate handling for race conditions
+6. stale `RUNNING` job recovery based on persisted timestamps
 
 Important rule:
 
@@ -188,6 +194,7 @@ The following assumptions are part of the architecture:
 - request and job correlation metadata are logged in structured form
 - storage defaults are private-by-default
 - public API exposes only published recipes
+- public API exposes only client-safe DTOs, not storage/provider internals
 - incomplete or failed generation must not appear as ready public content
 
 If auth, storage exposure, or public visibility rules change, update this file and `README.md`.

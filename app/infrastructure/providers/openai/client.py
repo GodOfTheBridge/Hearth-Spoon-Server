@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import struct
 from typing import Any
 
 import structlog
@@ -152,12 +153,19 @@ class OpenAIClientWrapper:
 
         image_bytes = base64.b64decode(encoded_image)
         mime_type = f"image/{self._settings.image_output_format}"
+        width, height = self._extract_dimensions(
+            image_bytes=image_bytes,
+            mime_type=mime_type,
+            configured_size=self._settings.image_output_size,
+        )
         response_metadata = {
             "provider": "openai",
             "response_created": getattr(response, "created", None),
             "model": self._settings.openai_image_model,
             "revised_prompt": getattr(image_payload, "revised_prompt", None),
             "safety_identifier_hash": safety_identifier,
+            "width": width,
+            "height": height,
         }
         logger.info("openai.images.request.completed", model=self._settings.openai_image_model)
         return image_bytes, mime_type, response_metadata
@@ -189,3 +197,89 @@ class OpenAIClientWrapper:
             "status": getattr(response, "status", None),
             "usage": usage.model_dump() if usage and hasattr(usage, "model_dump") else None,
         }
+
+    @staticmethod
+    def _extract_dimensions(
+        *,
+        image_bytes: bytes,
+        mime_type: str,
+        configured_size: str,
+    ) -> tuple[int | None, int | None]:
+        """Extract image dimensions from bytes or fall back to configured output size."""
+
+        if (
+            mime_type == "image/png"
+            and len(image_bytes) >= 24
+            and image_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+        ):
+            return (
+                int.from_bytes(image_bytes[16:20], byteorder="big"),
+                int.from_bytes(image_bytes[20:24], byteorder="big"),
+            )
+
+        if mime_type in {"image/jpeg", "image/jpg"}:
+            width, height = OpenAIClientWrapper._extract_jpeg_dimensions(image_bytes)
+            if width is not None and height is not None:
+                return width, height
+
+        return OpenAIClientWrapper._parse_configured_size(configured_size)
+
+    @staticmethod
+    def _extract_jpeg_dimensions(image_bytes: bytes) -> tuple[int | None, int | None]:
+        """Extract JPEG image dimensions from SOF markers."""
+
+        cursor = 2
+        image_length = len(image_bytes)
+
+        while cursor + 9 < image_length:
+            if image_bytes[cursor] != 0xFF:
+                cursor += 1
+                continue
+
+            marker = image_bytes[cursor + 1]
+            cursor += 2
+
+            if marker in {0xD8, 0xD9}:
+                continue
+
+            if cursor + 2 > image_length:
+                break
+
+            segment_length = struct.unpack(">H", image_bytes[cursor : cursor + 2])[0]
+            if segment_length < 2 or cursor + segment_length > image_length:
+                break
+
+            if marker in {
+                0xC0,
+                0xC1,
+                0xC2,
+                0xC3,
+                0xC5,
+                0xC6,
+                0xC7,
+                0xC9,
+                0xCA,
+                0xCB,
+                0xCD,
+                0xCE,
+                0xCF,
+            }:
+                if cursor + 7 > image_length:
+                    break
+                height = struct.unpack(">H", image_bytes[cursor + 3 : cursor + 5])[0]
+                width = struct.unpack(">H", image_bytes[cursor + 5 : cursor + 7])[0]
+                return width, height
+
+            cursor += segment_length
+
+        return None, None
+
+    @staticmethod
+    def _parse_configured_size(configured_size: str) -> tuple[int | None, int | None]:
+        """Parse configured output size like '1024x1024'."""
+
+        try:
+            width_text, height_text = configured_size.lower().split("x", maxsplit=1)
+            return int(width_text), int(height_text)
+        except (TypeError, ValueError):
+            return None, None

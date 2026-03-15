@@ -18,6 +18,7 @@ from app.application.exceptions import (
     StructuredOutputValidationError,
     ValidationFailureError,
 )
+from app.observability.context import bind_context
 
 logger = structlog.get_logger(__name__)
 
@@ -114,6 +115,10 @@ def register_exception_handlers(application: FastAPI) -> None:
 
     @application.exception_handler(Exception)
     async def handle_unexpected_error(request: Request, exception: Exception) -> JSONResponse:
+        bind_context(
+            request_id=getattr(request.state, "request_id", None),
+            correlation_id=getattr(request.state, "correlation_id", None),
+        )
         logger.exception("http.unhandled_exception", error_type=type(exception).__name__)
         return _build_error_response(
             request=request,

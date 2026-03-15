@@ -57,3 +57,15 @@ class GenerationExecutionResult(BaseModel):
     was_created: bool
     message: str
     provider_metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class GenerationDispatchResult(BaseModel):
+    """Result returned when generation is queued for asynchronous execution."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    slot_time_utc: datetime
+    job: GenerationJob
+    recipe: Recipe | None = None
+    was_enqueued: bool
+    message: str

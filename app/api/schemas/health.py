@@ -24,3 +24,12 @@ class HealthResponse(BaseModel):
     status: str
     timestamp_utc: datetime
     components: dict[str, HealthComponentResponse]
+
+
+class PublicHealthResponse(BaseModel):
+    """Shallow public health response."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    timestamp_utc: datetime

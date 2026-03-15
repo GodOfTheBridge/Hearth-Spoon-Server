@@ -29,7 +29,7 @@ class FakeOpenAIClientWrapper:
 
     def generate_image(self, *, prompt, safety_identifier):
         _ = (prompt, safety_identifier)
-        return b"image", "image/png", {"response": "ok"}
+        return b"image", "image/png", {"response": "ok", "width": 1024, "height": 1024}
 
 
 def test_text_generation_provider_validates_payload() -> None:
@@ -70,4 +70,6 @@ def test_image_generation_provider_returns_normalized_asset() -> None:
 
     assert image_asset.content_bytes == b"image"
     assert image_asset.provider_model == "gpt-image-1.5"
+    assert image_asset.width == 1024
+    assert image_asset.height == 1024
     assert response_metadata["response"] == "ok"

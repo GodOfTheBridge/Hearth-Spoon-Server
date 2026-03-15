@@ -107,6 +107,33 @@ class RecipeImageResponse(BaseModel):
         )
 
 
+class PublicRecipeImageResponse(BaseModel):
+    """Client-safe recipe image metadata exposed to public consumers."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    width: int | None = None
+    height: int | None = None
+    mime_type: str
+
+    @classmethod
+    def from_domain(
+        cls,
+        recipe_image: RecipeImage,
+        object_storage: ObjectStorage,
+    ) -> PublicRecipeImageResponse:
+        image_url = recipe_image.public_url or object_storage.build_read_url(
+            storage_key=recipe_image.storage_key
+        )
+        return cls(
+            url=image_url,
+            width=recipe_image.width,
+            height=recipe_image.height,
+            mime_type=recipe_image.mime_type,
+        )
+
+
 class RecipeSummaryResponse(BaseModel):
     """Recipe summary response for feed endpoints."""
 
@@ -147,6 +174,48 @@ class RecipeSummaryResponse(BaseModel):
             published_at=recipe_aggregate.recipe.published_at,
             image=(
                 RecipeImageResponse.from_domain(recipe_aggregate.image, object_storage)
+                if recipe_aggregate.image
+                else None
+            ),
+        )
+
+
+class PublicRecipeSummaryResponse(BaseModel):
+    """Client-safe recipe summary for public feed endpoints."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    title: str
+    subtitle: str
+    story_or_intro: str
+    servings: int
+    cooking_time_minutes: int
+    preparation_time_minutes: int
+    difficulty_level: str
+    style_tags: list[str]
+    published_at: datetime | None = None
+    image: PublicRecipeImageResponse | None = None
+
+    @classmethod
+    def from_domain(
+        cls,
+        recipe_aggregate: RecipeAggregate,
+        object_storage: ObjectStorage,
+    ) -> PublicRecipeSummaryResponse:
+        return cls(
+            id=recipe_aggregate.recipe.id,
+            title=recipe_aggregate.recipe.title,
+            subtitle=recipe_aggregate.recipe.subtitle,
+            story_or_intro=recipe_aggregate.recipe.story_or_intro,
+            servings=recipe_aggregate.recipe.servings,
+            cooking_time_minutes=recipe_aggregate.recipe.cooking_time_minutes,
+            preparation_time_minutes=recipe_aggregate.recipe.preparation_time_minutes,
+            difficulty_level=recipe_aggregate.recipe.difficulty_level,
+            style_tags=recipe_aggregate.recipe.style_tags,
+            published_at=recipe_aggregate.recipe.published_at,
+            image=(
+                PublicRecipeImageResponse.from_domain(recipe_aggregate.image, object_storage)
                 if recipe_aggregate.image
                 else None
             ),
@@ -220,11 +289,64 @@ class RecipeDetailResponse(BaseModel):
         )
 
 
+class PublicRecipeDetailResponse(BaseModel):
+    """Client-safe detailed recipe response for public consumers."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    title: str
+    subtitle: str
+    story_or_intro: str
+    servings: int
+    cooking_time_minutes: int
+    preparation_time_minutes: int
+    difficulty_level: str
+    ingredients: list[RecipeIngredientResponse]
+    tools: list[str]
+    steps: list[RecipeStepResponse]
+    cooking_tips: list[str]
+    plating_tips: list[str]
+    style_tags: list[str]
+    published_at: datetime | None = None
+    image: PublicRecipeImageResponse | None = None
+
+    @classmethod
+    def from_domain(
+        cls,
+        recipe_aggregate: RecipeAggregate,
+        object_storage: ObjectStorage,
+    ) -> PublicRecipeDetailResponse:
+        recipe = recipe_aggregate.recipe
+        return cls(
+            id=recipe.id,
+            title=recipe.title,
+            subtitle=recipe.subtitle,
+            story_or_intro=recipe.story_or_intro,
+            servings=recipe.servings,
+            cooking_time_minutes=recipe.cooking_time_minutes,
+            preparation_time_minutes=recipe.preparation_time_minutes,
+            difficulty_level=recipe.difficulty_level,
+            ingredients=[RecipeIngredientResponse.from_domain(item) for item in recipe.ingredients],
+            tools=recipe.tools,
+            steps=[RecipeStepResponse.from_domain(item) for item in recipe.steps],
+            cooking_tips=recipe.cooking_tips,
+            plating_tips=recipe.plating_tips,
+            style_tags=recipe.style_tags,
+            published_at=recipe.published_at,
+            image=(
+                PublicRecipeImageResponse.from_domain(recipe_aggregate.image, object_storage)
+                if recipe_aggregate.image
+                else None
+            ),
+        )
+
+
 class RecipeFeedResponse(BaseModel):
     """Public recipe feed payload."""
 
     model_config = ConfigDict(extra="forbid")
 
-    items: list[RecipeSummaryResponse]
+    items: list[PublicRecipeSummaryResponse]
     limit: int
     offset: int

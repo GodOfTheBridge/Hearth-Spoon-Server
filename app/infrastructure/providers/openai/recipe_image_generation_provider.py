@@ -43,6 +43,12 @@ class OpenAIRecipeImageGenerationProvider(RecipeImageGenerationProvider):
         image_asset = GeneratedImageAsset(
             content_bytes=image_bytes,
             mime_type=mime_type,
+            width=response_metadata.get("width")
+            if isinstance(response_metadata.get("width"), int)
+            else None,
+            height=response_metadata.get("height")
+            if isinstance(response_metadata.get("height"), int)
+            else None,
             provider_name=OPENAI_PROVIDER_NAME,
             provider_model=self._model_name,
             provider_response_metadata=response_metadata,

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import structlog
@@ -17,6 +17,7 @@ from app.application.exceptions import (
 from app.application.models import (
     CreateRecipeCommand,
     CreateRecipeImageCommand,
+    GenerationDispatchResult,
     GenerationExecutionResult,
 )
 from app.application.ports.locking import DistributedLockManager
@@ -129,6 +130,80 @@ class RecipeGenerationService:
                 idempotency_key=idempotency_key,
             )
 
+    def prepare_background_generation(
+        self,
+        *,
+        slot_time_utc: datetime,
+        requested_by: str,
+    ) -> GenerationDispatchResult:
+        """Prepare a generation job and return quickly for background execution."""
+
+        normalized_slot_time_utc = normalize_to_hour_slot(slot_time_utc)
+        idempotency_key = f"hourly-recipe:{normalized_slot_time_utc.isoformat()}"
+        lock_key = f"{GENERATION_LOCK_KEY_PREFIX}:{idempotency_key}"
+        generation_parameters = self._build_generation_parameters()
+        request_metadata = self._build_request_metadata(
+            normalized_slot_time_utc=normalized_slot_time_utc,
+            requested_by=requested_by,
+            generation_parameters=generation_parameters,
+        )
+
+        with self._distributed_lock_manager.acquire_lock(
+            lock_key=lock_key,
+            timeout_seconds=self._settings.generation_lock_timeout_seconds,
+            blocking_timeout_seconds=0,
+        ) as acquired_lock:
+            if acquired_lock is None:
+                existing_job = self._load_job_by_idempotency_key(idempotency_key)
+                if existing_job is None:
+                    raise IdempotencyConflictError(
+                        "Generation dispatch is already in progress for "
+                        f"{normalized_slot_time_utc.isoformat()}."
+                    )
+
+                existing_recipe = None
+                if existing_job.status == GenerationJobStatus.COMPLETED:
+                    existing_recipe = self._load_recipe_from_job(
+                        existing_job.provider_response_metadata
+                    )
+
+                return GenerationDispatchResult(
+                    slot_time_utc=normalized_slot_time_utc,
+                    job=existing_job,
+                    recipe=existing_recipe,
+                    was_enqueued=False,
+                    message=self._build_dispatch_message(
+                        job_status=existing_job.status,
+                        was_enqueued=False,
+                    ),
+                )
+
+            _, job = self._prepare_job(
+                slot_time_utc=normalized_slot_time_utc,
+                idempotency_key=idempotency_key,
+                request_metadata=request_metadata,
+                start_job=False,
+            )
+
+        existing_recipe = None
+        was_enqueued = job.status not in {
+            GenerationJobStatus.RUNNING,
+            GenerationJobStatus.COMPLETED,
+        }
+        if job.status == GenerationJobStatus.COMPLETED:
+            existing_recipe = self._load_recipe_from_job(job.provider_response_metadata)
+
+        return GenerationDispatchResult(
+            slot_time_utc=normalized_slot_time_utc,
+            job=job,
+            recipe=existing_recipe,
+            was_enqueued=was_enqueued,
+            message=self._build_dispatch_message(
+                job_status=job.status,
+                was_enqueued=was_enqueued,
+            ),
+        )
+
     def _execute_generation(
         self,
         *,
@@ -138,16 +213,17 @@ class RecipeGenerationService:
     ) -> GenerationExecutionResult:
         now_utc = get_current_utc_datetime()
         generation_parameters = self._build_generation_parameters()
-        request_metadata: dict[str, object] = {
-            "requested_by": requested_by,
-            "slot_time_utc": normalized_slot_time_utc.isoformat(),
-            "generation_parameters": generation_parameters.model_dump(mode="json"),
-        }
+        request_metadata = self._build_request_metadata(
+            normalized_slot_time_utc=normalized_slot_time_utc,
+            requested_by=requested_by,
+            generation_parameters=generation_parameters,
+        )
 
         schedule_slot, job = self._prepare_job(
             slot_time_utc=normalized_slot_time_utc,
             idempotency_key=idempotency_key,
             request_metadata=request_metadata,
+            start_job=True,
         )
         bind_context(job_id=str(job.id))
 
@@ -285,6 +361,7 @@ class RecipeGenerationService:
         slot_time_utc: datetime,
         idempotency_key: str,
         request_metadata: dict[str, object],
+        start_job: bool,
     ):
         with self._session_factory() as session:
             slot_repository = self._generation_schedule_slot_repository_factory(session)
@@ -311,17 +388,35 @@ class RecipeGenerationService:
                 provider_request_metadata=request_metadata,
             )
 
+            if job.status == GenerationJobStatus.RUNNING and self._is_running_job_stale(
+                job=job,
+                schedule_slot=persisted_schedule_slot,
+            ):
+                job = self._recover_stale_running_job(
+                    slot_repository=slot_repository,
+                    job_repository=job_repository,
+                    schedule_slot_id=persisted_schedule_slot.id,
+                    job=job,
+                )
+                persisted_schedule_slot = slot_repository.get_by_id(persisted_schedule_slot.id)
+                if persisted_schedule_slot is None:
+                    raise DatabaseOperationError(
+                        "Generation schedule slot disappeared during stale-job recovery."
+                    )
+
             if job.status == GenerationJobStatus.RUNNING:
+                session.commit()
                 raise IdempotencyConflictError(
                     f"Generation job '{job.id}' is already running for this slot."
                 )
             if job.status == GenerationJobStatus.FAILED and (
                 job.retry_count >= self._settings.generation_max_retry_count
             ):
+                session.commit()
                 raise RetryExhaustedError(
                     f"Generation retries are exhausted for slot {slot_time_utc.isoformat()}."
                 )
-            if job.status != GenerationJobStatus.COMPLETED:
+            if start_job and job.status != GenerationJobStatus.COMPLETED:
                 persisted_schedule_slot = slot_repository.update_slot_status(
                     slot_id=persisted_schedule_slot.id,
                     status=GenerationSlotStatus.RUNNING,
@@ -337,7 +432,7 @@ class RecipeGenerationService:
                     provider_request_metadata=request_metadata,
                     provider_response_metadata=job.provider_response_metadata,
                 )
-                session.commit()
+            session.commit()
 
             return persisted_schedule_slot, job
 
@@ -485,6 +580,11 @@ class RecipeGenerationService:
             recipe_aggregate = recipe_repository.get_by_id(UUID(recipe_id))
             return recipe_aggregate.recipe if recipe_aggregate else None
 
+    def _load_job_by_idempotency_key(self, idempotency_key: str):
+        with self._session_factory() as session:
+            job_repository = self._generation_job_repository_factory(session)
+            return job_repository.get_by_idempotency_key(idempotency_key)
+
     def _build_generation_parameters(self) -> RecipeGenerationParameters:
         return RecipeGenerationParameters(
             language_code=self._settings.default_recipe_language_code,
@@ -496,6 +596,77 @@ class RecipeGenerationService:
             maximum_steps=self._settings.default_maximum_steps,
         )
 
+    def _build_request_metadata(
+        self,
+        *,
+        normalized_slot_time_utc: datetime,
+        requested_by: str,
+        generation_parameters: RecipeGenerationParameters,
+    ) -> dict[str, object]:
+        return {
+            "requested_by": requested_by,
+            "slot_time_utc": normalized_slot_time_utc.isoformat(),
+            "generation_parameters": generation_parameters.model_dump(mode="json"),
+        }
+
+    def _is_running_job_stale(
+        self,
+        *,
+        job,
+        schedule_slot,
+    ) -> bool:
+        last_activity_at = job.started_at or schedule_slot.locked_at or job.created_at
+        if last_activity_at.tzinfo is None:
+            last_activity_at = last_activity_at.replace(tzinfo=UTC)
+        stale_for_seconds = (get_current_utc_datetime() - last_activity_at).total_seconds()
+        return stale_for_seconds >= self._settings.generation_stale_after_seconds
+
+    def _recover_stale_running_job(
+        self,
+        *,
+        slot_repository,
+        job_repository,
+        schedule_slot_id: UUID,
+        job,
+    ):
+        recovered_at = get_current_utc_datetime()
+        failure_metadata = dict(job.provider_response_metadata)
+        failure_metadata["stale_recovered_at"] = recovered_at.isoformat()
+        failure_metadata["stale_recovery_reason"] = (
+            "Recovered a stale RUNNING job before retrying generation."
+        )
+        slot_repository.update_slot_status(
+            slot_id=schedule_slot_id,
+            status=GenerationSlotStatus.FAILED,
+            locked_at=recovered_at,
+        )
+        recovered_job = job_repository.update_job_status(
+            job_id=job.id,
+            status=GenerationJobStatus.FAILED,
+            started_at=job.started_at,
+            finished_at=recovered_at,
+            error_message="Recovered stale RUNNING job before retry.",
+            retry_count=job.retry_count + 1,
+            provider_request_metadata=job.provider_request_metadata,
+            provider_response_metadata=failure_metadata,
+        )
+        logger.warning(
+            "generation.job.stale_recovered",
+            job_id=str(job.id),
+            schedule_slot_id=str(schedule_slot_id),
+        )
+        return recovered_job
+
     def _build_storage_key(self, *, slot_time_utc: datetime) -> str:
         slot_date_path = slot_time_utc.strftime("%Y/%m/%d/%H")
         return f"{RECIPE_IMAGE_STORAGE_PREFIX}/{slot_date_path}/{uuid4()}.png"
+
+    @staticmethod
+    def _build_dispatch_message(*, job_status, was_enqueued: bool) -> str:
+        if was_enqueued:
+            return "Generation was queued for background execution."
+        if job_status == GenerationJobStatus.COMPLETED:
+            return "Generation for this slot has already completed."
+        if job_status == GenerationJobStatus.RUNNING:
+            return "Generation for this slot is already running."
+        return "Generation for this slot is already queued."

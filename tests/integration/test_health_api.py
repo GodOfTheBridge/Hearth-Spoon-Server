@@ -7,7 +7,9 @@ from datetime import UTC, datetime
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_health_service
+from app.config.settings import get_settings
 from app.main import create_app
+from tests.fakes.fake_components import NoopAdminRateLimiter
 
 
 class FakeHealthService:
@@ -37,4 +39,24 @@ def test_health_endpoint_returns_healthy_payload() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "healthy"
+    assert "components" not in payload
+
+
+def test_admin_readiness_endpoint_returns_detailed_payload() -> None:
+    """The admin readiness endpoint should expose dependency detail to authenticated operators."""
+
+    application = create_app()
+    application.dependency_overrides[get_health_service] = lambda: FakeHealthService()
+
+    with TestClient(application) as client:
+        application.state.container.admin_rate_limiter = NoopAdminRateLimiter()
+        response = client.get(
+            "/api/v1/admin/health/readiness",
+            headers={
+                "Authorization": (f"Bearer {get_settings().admin_bearer_token.get_secret_value()}")
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
     assert payload["components"]["database"]["status"] == "healthy"

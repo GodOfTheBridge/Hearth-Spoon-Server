@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from app.application.models import GenerationExecutionResult
+from app.application.models import GenerationDispatchResult
 from app.domain.entities import GenerationJob
 
 
@@ -58,18 +58,20 @@ class RunGenerationNowResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    slot_time_utc: datetime
     job: GenerationJobResponse
     recipe_id: UUID | None = None
-    was_created: bool
+    was_enqueued: bool
     message: str
 
     @classmethod
-    def from_result(cls, result: GenerationExecutionResult) -> RunGenerationNowResponse:
-        """Build a response from the application result."""
+    def from_result(cls, result: GenerationDispatchResult) -> RunGenerationNowResponse:
+        """Build a response from the application dispatch result."""
 
         return cls(
+            slot_time_utc=result.slot_time_utc,
             job=GenerationJobResponse.from_domain(result.job),
             recipe_id=result.recipe.id if result.recipe else None,
-            was_created=result.was_created,
+            was_enqueued=result.was_enqueued,
             message=result.message,
         )

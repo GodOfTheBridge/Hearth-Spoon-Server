@@ -7,21 +7,25 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 
 from app.api.dependencies import get_container, get_recipe_query_service
-from app.api.schemas.recipe import RecipeDetailResponse, RecipeFeedResponse, RecipeSummaryResponse
+from app.api.schemas.recipe import (
+    PublicRecipeDetailResponse,
+    PublicRecipeSummaryResponse,
+    RecipeFeedResponse,
+)
 from app.bootstrap import ApplicationContainer
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
 
 
-@router.get("/latest", response_model=RecipeDetailResponse)
+@router.get("/latest", response_model=PublicRecipeDetailResponse)
 def get_latest_recipe(
     recipe_query_service=Depends(get_recipe_query_service),
     container: ApplicationContainer = Depends(get_container),
-) -> RecipeDetailResponse:
+) -> PublicRecipeDetailResponse:
     """Return the latest published recipe."""
 
     recipe_aggregate = recipe_query_service.get_latest_published_recipe()
-    return RecipeDetailResponse.from_domain(recipe_aggregate, container.object_storage)
+    return PublicRecipeDetailResponse.from_domain(recipe_aggregate, container.object_storage)
 
 
 @router.get("/feed", response_model=RecipeFeedResponse)
@@ -36,7 +40,7 @@ def get_recipe_feed(
     recipe_aggregates = recipe_query_service.get_published_feed(limit=limit, offset=offset)
     return RecipeFeedResponse(
         items=[
-            RecipeSummaryResponse.from_domain(recipe_aggregate, container.object_storage)
+            PublicRecipeSummaryResponse.from_domain(recipe_aggregate, container.object_storage)
             for recipe_aggregate in recipe_aggregates
         ],
         limit=limit,
@@ -44,13 +48,13 @@ def get_recipe_feed(
     )
 
 
-@router.get("/{recipe_id}", response_model=RecipeDetailResponse)
+@router.get("/{recipe_id}", response_model=PublicRecipeDetailResponse)
 def get_recipe_by_id(
     recipe_id: UUID,
     recipe_query_service=Depends(get_recipe_query_service),
     container: ApplicationContainer = Depends(get_container),
-) -> RecipeDetailResponse:
+) -> PublicRecipeDetailResponse:
     """Return a published recipe by identifier."""
 
     recipe_aggregate = recipe_query_service.get_published_recipe_by_id(recipe_id)
-    return RecipeDetailResponse.from_domain(recipe_aggregate, container.object_storage)
+    return PublicRecipeDetailResponse.from_domain(recipe_aggregate, container.object_storage)

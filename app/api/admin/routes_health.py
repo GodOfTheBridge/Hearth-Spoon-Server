@@ -5,16 +5,15 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
-from app.api.dependencies import get_health_service
+from app.api.dependencies import get_health_service, require_admin_read_access
 from app.api.schemas.health import HealthResponse
-from app.security.auth import require_admin_identity
 
 router = APIRouter(prefix="/admin/health", tags=["admin-health"])
 
 
 @router.get("/readiness", response_model=HealthResponse)
 def get_readiness(
-    _admin_identity=Depends(require_admin_identity),
+    _admin_identity=Depends(require_admin_read_access),
     health_service=Depends(get_health_service),
 ) -> JSONResponse:
     """Return detailed dependency readiness for authenticated operators."""

@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Run Ruff
+        run: uv run ruff check .
+
+      - name: Run mypy
+        run: uv run mypy .
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov -q
+
+      - name: Verify scheduler CLI
+        run: uv run python -m app.scheduler.cli --help
+
+  migration-and-compose:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: pechdalojka
+          POSTGRES_USER: pechdalojka
+          POSTGRES_PASSWORD: change-me-postgres-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pechdalojka -d pechdalojka"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      APP_ENVIRONMENT: test
+      APP_DEBUG: "false"
+      DATABASE_URL: postgresql+psycopg://pechdalojka:change-me-postgres-password@127.0.0.1:5432/pechdalojka
+      REDIS_URL: redis://:change-me-redis-password@localhost:6379/0
+      S3_ENDPOINT_URL: http://localhost:9000
+      S3_REGION_NAME: us-east-1
+      S3_BUCKET_NAME: pechdalojka-recipes
+      S3_ACCESS_KEY_ID: change-me-minio-user
+      S3_SECRET_ACCESS_KEY: change-me-minio-password
+      S3_USE_SSL: "false"
+      OPENAI_API_KEY: test-openai-key
+      ADMIN_IDENTITIES: "ops-read|change-me-readonly-token-which-is-long-enough|read;ops-write|change-me-write-token-which-is-long-enough|read,write"
+      ALLOWED_CORS_ORIGINS: http://localhost:3000
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Validate Alembic migrations
+        run: uv run alembic upgrade head
+
+      - name: Validate Docker Compose config
+        run: docker compose --env-file .env.example config

@@ -17,6 +17,7 @@ def configured_test_environment(monkeypatch: pytest.MonkeyPatch) -> Generator[No
     """Provide a fully configured environment for tests."""
 
     environment_values = {
+        "APP_ENVIRONMENT": "test",
         "DATABASE_URL": "sqlite+pysqlite:///:memory:",
         "REDIS_URL": "redis://localhost:6379/15",
         "S3_ENDPOINT_URL": "http://localhost:9000",
@@ -29,6 +30,10 @@ def configured_test_environment(monkeypatch: pytest.MonkeyPatch) -> Generator[No
         "S3_PUBLIC_ENDPOINT_URL": "https://cdn.example.test",
         "OPENAI_API_KEY": "test-openai-key",
         "OPENAI_PROJECT_ID": "",
+        "ADMIN_IDENTITIES": (
+            "ops-read|test-read-token-which-is-long-enough|read;"
+            "ops-write|test-write-token-which-is-long-enough|read,write"
+        ),
         "ADMIN_BEARER_TOKEN": "test-admin-token-which-is-long-enough",
         "ALLOWED_CORS_ORIGINS": "http://localhost:3000",
     }

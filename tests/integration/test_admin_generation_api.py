@@ -6,7 +6,6 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 
-from app.config.settings import get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.repositories.generation_job_repository import (
     SqlAlchemyGenerationJobRepository,
@@ -48,9 +47,14 @@ def configure_test_container(
 def build_admin_headers() -> dict[str, str]:
     """Build an authenticated admin header set for tests."""
 
-    settings = get_settings()
+    return build_role_based_admin_headers(token="test-write-token-which-is-long-enough")
+
+
+def build_role_based_admin_headers(*, token: str) -> dict[str, str]:
+    """Build a header set for an explicitly selected admin token."""
+
     return {
-        "Authorization": f"Bearer {settings.admin_bearer_token.get_secret_value()}",
+        "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
 
@@ -183,5 +187,27 @@ def test_admin_generation_rejects_naive_slot_time() -> None:
         )
 
         assert response.status_code == 422
+        assert text_provider.call_count == 0
+        assert image_provider.call_count == 0
+
+
+def test_read_only_admin_cannot_trigger_generation() -> None:
+    """A read-only admin token should not be allowed to mutate generation state."""
+
+    application = create_app()
+
+    with TestClient(application) as client:
+        text_provider, image_provider, _ = configure_test_container(application)
+        headers = build_role_based_admin_headers(
+            token="test-read-token-which-is-long-enough",
+        )
+
+        response = client.post(
+            "/api/v1/admin/generations/run-now",
+            headers=headers,
+            json={"slot_time_utc": "2026-03-15T16:00:00+00:00"},
+        )
+
+        assert response.status_code == 403
         assert text_provider.call_count == 0
         assert image_provider.call_count == 0

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.api.schemas.common import ApiErrorResponse
 from app.application.exceptions import (
     AuthenticationError,
+    AuthorizationError,
     DatabaseOperationError,
     ExternalProviderError,
     IdempotencyConflictError,
@@ -45,6 +46,16 @@ def register_exception_handlers(application: FastAPI) -> None:
             request=request,
             detail=str(exception),
             status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    @application.exception_handler(AuthorizationError)
+    async def handle_authorization_error(
+        request: Request, exception: AuthorizationError
+    ) -> JSONResponse:
+        return _build_error_response(
+            request=request,
+            detail=str(exception),
+            status_code=status.HTTP_403_FORBIDDEN,
         )
 
     @application.exception_handler(NotFoundError)

@@ -11,7 +11,8 @@ from fastapi.responses import JSONResponse
 from app.api.dependencies import (
     get_generation_query_service,
     get_generation_service,
-    require_admin_access,
+    require_admin_read_access,
+    require_admin_write_access,
 )
 from app.api.schemas.generation import (
     GenerationJobResponse,
@@ -54,7 +55,7 @@ def _run_generation_in_background(*, generation_service, slot_time_utc, requeste
 def run_generation_now(
     background_tasks: BackgroundTasks,
     request_payload: RunGenerationNowRequest | None = None,
-    admin_identity: AdminIdentity = Depends(require_admin_access),
+    admin_identity: AdminIdentity = Depends(require_admin_write_access),
     generation_service=Depends(get_generation_service),
 ) -> JSONResponse:
     """Trigger generation immediately for the current or provided slot."""
@@ -89,7 +90,7 @@ def run_generation_now(
 @router.get("/{job_id}", response_model=GenerationJobResponse)
 def get_generation_job(
     job_id: UUID,
-    admin_identity: AdminIdentity = Depends(require_admin_access),
+    admin_identity: AdminIdentity = Depends(require_admin_read_access),
     generation_query_service=Depends(get_generation_query_service),
 ) -> GenerationJobResponse:
     """Return the status of a generation job."""

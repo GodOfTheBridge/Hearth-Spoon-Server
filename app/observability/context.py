@@ -19,6 +19,7 @@ def bind_context(
     correlation_id: str | None = None,
     job_id: str | None = None,
     admin_actor: str | None = None,
+    admin_actor_label: str | None = None,
 ) -> None:
     """Bind request-scoped context to logs."""
 
@@ -27,6 +28,7 @@ def bind_context(
         correlation_id=correlation_id,
         job_id=job_id,
         admin_actor=admin_actor,
+        admin_actor_label=admin_actor_label,
     )
 
 

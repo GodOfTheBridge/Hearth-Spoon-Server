@@ -11,7 +11,7 @@ Use it as a release gate, not as optional reading.
 ## Must Be True Before Deploy
 
 - `OPENAI_API_KEY` is real and restricted to the intended project.
-- `ADMIN_BEARER_TOKEN` is long, random, and stored outside git.
+- `ADMIN_IDENTITIES` or a legacy `ADMIN_BEARER_TOKEN` is configured with long random tokens stored outside git.
 - PostgreSQL, Redis, and S3-compatible storage credentials are not local defaults.
 - TLS termination is configured in front of the public API.
 - The object storage bucket is private by default unless a deliberate public-CDN design is used.

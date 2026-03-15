@@ -7,7 +7,6 @@ from datetime import UTC, datetime
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_health_service
-from app.config.settings import get_settings
 from app.main import create_app
 from tests.fakes.fake_components import NoopAdminRateLimiter
 
@@ -58,9 +57,7 @@ def test_admin_readiness_endpoint_returns_detailed_payload() -> None:
         application.state.container.admin_rate_limiter = NoopAdminRateLimiter()
         response = client.get(
             "/api/v1/admin/health/readiness",
-            headers={
-                "Authorization": (f"Bearer {get_settings().admin_bearer_token.get_secret_value()}")
-            },
+            headers={"Authorization": "Bearer test-read-token-which-is-long-enough"},
         )
 
     assert response.status_code == 200

@@ -6,7 +6,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from app.api.dependencies import get_container, get_recipe_publication_service, require_admin_access
+from app.api.dependencies import (
+    get_container,
+    get_recipe_publication_service,
+    require_admin_write_access,
+)
 from app.api.schemas.recipe import RecipeDetailResponse
 from app.bootstrap import ApplicationContainer
 from app.security.auth import AdminIdentity
@@ -17,7 +21,7 @@ router = APIRouter(prefix="/admin/recipes", tags=["admin-recipes"])
 @router.post("/{recipe_id}/publish", response_model=RecipeDetailResponse)
 def publish_recipe(
     recipe_id: UUID,
-    admin_identity: AdminIdentity = Depends(require_admin_access),
+    admin_identity: AdminIdentity = Depends(require_admin_write_access),
     recipe_publication_service=Depends(get_recipe_publication_service),
     container: ApplicationContainer = Depends(get_container),
 ) -> RecipeDetailResponse:
@@ -33,7 +37,7 @@ def publish_recipe(
 @router.post("/{recipe_id}/unpublish", response_model=RecipeDetailResponse)
 def unpublish_recipe(
     recipe_id: UUID,
-    admin_identity: AdminIdentity = Depends(require_admin_access),
+    admin_identity: AdminIdentity = Depends(require_admin_write_access),
     recipe_publication_service=Depends(get_recipe_publication_service),
     container: ApplicationContainer = Depends(get_container),
 ) -> RecipeDetailResponse:

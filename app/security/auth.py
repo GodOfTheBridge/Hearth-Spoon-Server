@@ -1,4 +1,4 @@
-"""Simple bearer-token based admin authentication."""
+"""Admin authentication and coarse-grained authorization helpers."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict
 
-from app.application.exceptions import AuthenticationError
+from app.application.exceptions import AuthenticationError, AuthorizationError
 from app.config.settings import Settings, get_settings
 from app.security.safety import build_hashed_safety_identifier
 
@@ -16,30 +16,68 @@ http_bearer_scheme = HTTPBearer(auto_error=False)
 
 
 class AdminIdentity(BaseModel):
-    """Admin identity derived from the configured bearer token."""
+    """Authenticated admin identity derived from configured operator tokens."""
 
     model_config = ConfigDict(extra="forbid")
 
     actor_id: str
+    actor_label: str
+    roles: list[str]
+
+    def has_read_access(self) -> bool:
+        """Return whether this identity may access read-only admin endpoints."""
+
+        return "read" in self.roles or "write" in self.roles
+
+    def has_write_access(self) -> bool:
+        """Return whether this identity may access mutating admin endpoints."""
+
+        return "write" in self.roles
 
 
 def require_admin_identity(
     credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer_scheme),
     settings: Settings = Depends(get_settings),
 ) -> AdminIdentity:
-    """Validate the admin bearer token using constant-time comparison."""
+    """Validate the presented bearer token against configured admin identities."""
 
     if credentials is None:
         raise AuthenticationError("Missing admin bearer token.")
 
     provided_token = credentials.credentials.strip()
-    expected_token = settings.admin_bearer_token.get_secret_value().strip()
+    for configured_identity in settings.get_admin_configured_identities():
+        expected_token = configured_identity.token.get_secret_value().strip()
+        if not compare_digest(provided_token, expected_token):
+            continue
 
-    if not compare_digest(provided_token, expected_token):
-        raise AuthenticationError("Invalid admin bearer token.")
+        actor_id = build_hashed_safety_identifier(
+            namespace="admin-actor",
+            raw_identifier=configured_identity.actor_label,
+        )
+        return AdminIdentity(
+            actor_id=actor_id,
+            actor_label=configured_identity.actor_label,
+            roles=configured_identity.roles,
+        )
 
-    actor_id = build_hashed_safety_identifier(
-        namespace="admin-actor",
-        raw_identifier=provided_token,
-    )
-    return AdminIdentity(actor_id=actor_id)
+    raise AuthenticationError("Invalid admin bearer token.")
+
+
+def require_admin_read_role(
+    admin_identity: AdminIdentity = Depends(require_admin_identity),
+) -> AdminIdentity:
+    """Require an authenticated admin identity with read access."""
+
+    if not admin_identity.has_read_access():
+        raise AuthorizationError("Admin token does not have read access.")
+    return admin_identity
+
+
+def require_admin_write_role(
+    admin_identity: AdminIdentity = Depends(require_admin_identity),
+) -> AdminIdentity:
+    """Require an authenticated admin identity with write access."""
+
+    if not admin_identity.has_write_access():
+        raise AuthorizationError("Admin token does not have write access.")
+    return admin_identity

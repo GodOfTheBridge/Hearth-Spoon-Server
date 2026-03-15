@@ -47,7 +47,7 @@ Release gate and VPS rollout checklist: `PRODUCTION_CHECKLIST.md`
    - затем в одной DB transaction сохраняются recipe + image metadata + statuses
    - если upload уже был, а DB commit упал, выполняется compensating delete в storage
 6. Секреты читаются только из env; `.env` не коммитится, есть `.env.example`.
-7. Public API отдает только опубликованные рецепты; автоматическую публикацию можно включить env-флагом `AUTO_PUBLISH_GENERATED_RECIPES=true`.
+7. Public API отдает только опубликованные рецепты; автоматическую публикацию можно включить env-флагом `AUTO_PUBLISH_GENERATED_RECIPES=true` только в `development`, `staging` или `test`.
 
 ## Структура проекта
 
@@ -120,8 +120,10 @@ cp .env.example .env
 Заполните минимум:
 
 - `OPENAI_API_KEY`
-- `ADMIN_BEARER_TOKEN`
+- `ADMIN_IDENTITIES` или legacy `ADMIN_BEARER_TOKEN`
 - при необходимости `S3_*`, `DATABASE_URL`, `REDIS_URL`
+
+For local development with Swagger/ReDoc enabled, explicitly set `APP_ENVIRONMENT=development`.
 
 For storage URL behavior:
 
@@ -295,7 +297,7 @@ make test
 - секреты читаются из env
 - `.env` игнорируется git
 - есть `.env.example`
-- admin auth через bearer token из env
+- admin auth поддерживает несколько операторских bearer tokens с ролями `read` / `write`; legacy single token оставлен только как bootstrap fallback
 - rate limiting для admin endpoints
 - request id и correlation id middleware
 - JSON structured logs
@@ -313,7 +315,7 @@ make test
 
 ## Что стоит усилить позже
 
-- заменить static admin bearer token на полноценную authn/authz систему
+- заменить env-based admin tokens на полноценную authn/authz систему с revocation и внешним identity provider
 - добавить audit trail в отдельную таблицу, если потребуется compliance
 - подключить OpenTelemetry / traces / metrics
 - вынести background cleanup для orphaned storage objects

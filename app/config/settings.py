@@ -5,8 +5,60 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+
+class AdminConfiguredIdentity(BaseModel):
+    """Static admin identity configured from environment variables."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    actor_label: str
+    token: SecretStr
+    roles: list[str]
+
+    @field_validator("actor_label")
+    @classmethod
+    def validate_actor_label(cls, raw_value: str) -> str:
+        """Require a stable non-empty actor label for auditability."""
+
+        normalized_value = raw_value.strip()
+        if not normalized_value:
+            raise ValueError("Admin actor label must not be empty.")
+        return normalized_value
+
+    @field_validator("token")
+    @classmethod
+    def validate_token_strength(cls, raw_value: SecretStr) -> SecretStr:
+        """Require a minimally strong admin token."""
+
+        if len(raw_value.get_secret_value().strip()) < 24:
+            raise ValueError("Admin tokens must be at least 24 characters long.")
+        return raw_value
+
+    @field_validator("roles")
+    @classmethod
+    def validate_roles(cls, raw_value: list[str]) -> list[str]:
+        """Allow only the supported admin roles."""
+
+        normalized_roles = [role.strip().lower() for role in raw_value if role.strip()]
+        if not normalized_roles:
+            raise ValueError("Admin identity must declare at least one role.")
+
+        allowed_roles = {"read", "write"}
+        unsupported_roles = sorted(set(normalized_roles) - allowed_roles)
+        if unsupported_roles:
+            raise ValueError(f"Unsupported admin roles configured: {', '.join(unsupported_roles)}.")
+        return sorted(set(normalized_roles))
 
 
 class Settings(BaseSettings):
@@ -19,9 +71,13 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    app_name: str = Field(default="ПечьДаЛожка Backend", validation_alias=AliasChoices("APP_NAME"))
+    app_name: str = Field(
+        default="ПечьДаЛожка Backend",
+        validation_alias=AliasChoices("APP_NAME"),
+    )
     app_environment: str = Field(
-        default="development", validation_alias=AliasChoices("APP_ENVIRONMENT")
+        default="production",
+        validation_alias=AliasChoices("APP_ENVIRONMENT"),
     )
     app_debug: bool = Field(default=False, validation_alias=AliasChoices("APP_DEBUG"))
     app_host: str = Field(default="0.0.0.0", validation_alias=AliasChoices("APP_HOST"))
@@ -33,7 +89,8 @@ class Settings(BaseSettings):
 
     s3_endpoint_url: str = Field(validation_alias=AliasChoices("S3_ENDPOINT_URL"))
     s3_region_name: str = Field(
-        default="us-east-1", validation_alias=AliasChoices("S3_REGION_NAME")
+        default="us-east-1",
+        validation_alias=AliasChoices("S3_REGION_NAME"),
     )
     s3_bucket_name: str = Field(validation_alias=AliasChoices("S3_BUCKET_NAME"))
     s3_access_key_id: str = Field(validation_alias=AliasChoices("S3_ACCESS_KEY_ID"))
@@ -44,7 +101,8 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("S3_MAX_RETRY_ATTEMPTS"),
     )
     s3_public_base_url: str | None = Field(
-        default=None, validation_alias=AliasChoices("S3_PUBLIC_BASE_URL")
+        default=None,
+        validation_alias=AliasChoices("S3_PUBLIC_BASE_URL"),
     )
     s3_public_endpoint_url: str | None = Field(
         default=None,
@@ -57,10 +115,12 @@ class Settings(BaseSettings):
 
     openai_api_key: SecretStr = Field(validation_alias=AliasChoices("OPENAI_API_KEY"))
     openai_project_id: str | None = Field(
-        default=None, validation_alias=AliasChoices("OPENAI_PROJECT_ID")
+        default=None,
+        validation_alias=AliasChoices("OPENAI_PROJECT_ID"),
     )
     openai_text_model: str = Field(
-        default="gpt-5-mini", validation_alias=AliasChoices("OPENAI_TEXT_MODEL")
+        default="gpt-5-mini",
+        validation_alias=AliasChoices("OPENAI_TEXT_MODEL"),
     )
     openai_image_model: str = Field(
         default="gpt-image-1.5",
@@ -83,7 +143,14 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("OPENAI_MAX_OUTPUT_TOKENS"),
     )
 
-    admin_bearer_token: SecretStr = Field(validation_alias=AliasChoices("ADMIN_BEARER_TOKEN"))
+    admin_bearer_token: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("ADMIN_BEARER_TOKEN"),
+    )
+    admin_identities: Annotated[list[AdminConfiguredIdentity], NoDecode] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("ADMIN_IDENTITIES"),
+    )
     allowed_cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=list,
         validation_alias=AliasChoices("ALLOWED_CORS_ORIGINS"),
@@ -175,6 +242,39 @@ class Settings(BaseSettings):
             return [str(item).strip() for item in raw_value if str(item).strip()]
         return [item.strip() for item in str(raw_value).split(",") if item.strip()]
 
+    @field_validator("admin_identities", mode="before")
+    @classmethod
+    def parse_admin_identities(
+        cls, raw_value: object
+    ) -> list[dict[str, object]] | list[AdminConfiguredIdentity]:
+        """Parse semicolon-separated admin identities from environment variables."""
+
+        if raw_value is None or raw_value == "":
+            return []
+        if isinstance(raw_value, list):
+            return raw_value
+
+        parsed_identities: list[dict[str, object]] = []
+        identity_records = [item.strip() for item in str(raw_value).split(";") if item.strip()]
+        for identity_record in identity_records:
+            parts = [part.strip() for part in identity_record.split("|")]
+            if len(parts) != 3:
+                raise ValueError(
+                    "ADMIN_IDENTITIES must use the format "
+                    "'actor-label|token|read,write;another-actor|token|read'."
+                )
+
+            actor_label, token, raw_roles = parts
+            roles = [role.strip() for role in raw_roles.split(",") if role.strip()]
+            parsed_identities.append(
+                {
+                    "actor_label": actor_label,
+                    "token": token,
+                    "roles": roles,
+                }
+            )
+        return parsed_identities
+
     @field_validator("app_environment")
     @classmethod
     def normalize_app_environment(cls, raw_value: str) -> str:
@@ -184,9 +284,11 @@ class Settings(BaseSettings):
 
     @field_validator("admin_bearer_token")
     @classmethod
-    def validate_admin_bearer_token_strength(cls, raw_value: SecretStr) -> SecretStr:
-        """Require a minimally strong admin token outside tests."""
+    def validate_admin_bearer_token_strength(cls, raw_value: SecretStr | None) -> SecretStr | None:
+        """Require a minimally strong legacy admin token when configured."""
 
+        if raw_value is None:
+            return None
         if len(raw_value.get_secret_value().strip()) < 24:
             raise ValueError("ADMIN_BEARER_TOKEN must be at least 24 characters long.")
         return raw_value
@@ -203,7 +305,25 @@ class Settings(BaseSettings):
             raise ValueError(
                 "AUTO_PUBLISH_GENERATED_RECIPES is allowed only in development, staging, or test."
             )
+        if not self.admin_identities and self.admin_bearer_token is None:
+            raise ValueError(
+                "Configure either ADMIN_IDENTITIES or ADMIN_BEARER_TOKEN for admin access."
+            )
         return self
+
+    def get_admin_configured_identities(self) -> list[AdminConfiguredIdentity]:
+        """Return configured admin identities, including the legacy fallback when present."""
+
+        configured_identities = list(self.admin_identities)
+        if self.admin_bearer_token is not None:
+            configured_identities.append(
+                AdminConfiguredIdentity(
+                    actor_label="legacy-admin",
+                    token=self.admin_bearer_token,
+                    roles=["read", "write"],
+                )
+            )
+        return configured_identities
 
 
 @lru_cache(maxsize=1)

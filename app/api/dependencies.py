@@ -16,7 +16,7 @@ from app.infrastructure.database.repositories.generation_job_repository import (
 )
 from app.infrastructure.database.repositories.recipe_repository import SqlAlchemyRecipeRepository
 from app.observability.context import bind_context
-from app.security.auth import AdminIdentity, require_admin_identity
+from app.security.auth import AdminIdentity, require_admin_read_role, require_admin_write_role
 
 
 def get_container(request: Request) -> ApplicationContainer:
@@ -85,13 +85,45 @@ def get_health_service(container: ApplicationContainer = Depends(get_container))
     return container.build_health_service()
 
 
-def require_admin_access(
+def _enforce_admin_access(
+    *,
     request: Request,
-    admin_identity: AdminIdentity = Depends(require_admin_identity),
-    container: ApplicationContainer = Depends(get_container),
+    admin_identity: AdminIdentity,
+    container: ApplicationContainer,
 ) -> AdminIdentity:
-    """Authenticate and rate-limit admin endpoints."""
+    """Apply shared admin request controls after authentication/authorization."""
 
     container.admin_rate_limiter.enforce(request=request, admin_identity=admin_identity)
-    bind_context(admin_actor=admin_identity.actor_id)
+    bind_context(
+        admin_actor=admin_identity.actor_id,
+        admin_actor_label=admin_identity.actor_label,
+    )
     return admin_identity
+
+
+def require_admin_read_access(
+    request: Request,
+    admin_identity: AdminIdentity = Depends(require_admin_read_role),
+    container: ApplicationContainer = Depends(get_container),
+) -> AdminIdentity:
+    """Authenticate, authorize and rate-limit read-only admin endpoints."""
+
+    return _enforce_admin_access(
+        request=request,
+        admin_identity=admin_identity,
+        container=container,
+    )
+
+
+def require_admin_write_access(
+    request: Request,
+    admin_identity: AdminIdentity = Depends(require_admin_write_role),
+    container: ApplicationContainer = Depends(get_container),
+) -> AdminIdentity:
+    """Authenticate, authorize and rate-limit mutating admin endpoints."""
+
+    return _enforce_admin_access(
+        request=request,
+        admin_identity=admin_identity,
+        container=container,
+    )

@@ -8,6 +8,7 @@ import redis
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.application.ports.locking import DistributedLockManager
 from app.application.services.generation_service import RecipeGenerationService
 from app.application.services.health_service import HealthService
 from app.application.services.image_prompt_builder import ImagePromptBuilder
@@ -22,6 +23,8 @@ from app.infrastructure.database.repositories.generation_schedule_slot_repositor
 )
 from app.infrastructure.database.repositories.recipe_repository import SqlAlchemyRecipeRepository
 from app.infrastructure.database.session import create_database_engine, create_session_factory
+from app.infrastructure.locking.composite_lock import CompositeDistributedLockManager
+from app.infrastructure.locking.postgres_lock import PostgresAdvisoryLockManager
 from app.infrastructure.locking.redis_lock import RedisDistributedLockManager
 from app.infrastructure.providers.openai.client import OpenAIClientWrapper
 from app.infrastructure.providers.openai.recipe_image_generation_provider import (
@@ -43,7 +46,7 @@ class ApplicationContainer:
     session_factory: sessionmaker[Session]
     redis_client: redis.Redis
     object_storage: S3ObjectStorage
-    distributed_lock_manager: RedisDistributedLockManager
+    distributed_lock_manager: DistributedLockManager
     recipe_text_generation_provider: OpenAIRecipeTextGenerationProvider
     recipe_image_generation_provider: OpenAIRecipeImageGenerationProvider
     admin_rate_limiter: AdminRateLimiter
@@ -93,7 +96,13 @@ def build_application_container(settings: Settings | None = None) -> Application
     session_factory = create_session_factory(engine)
     redis_client = build_redis_client(resolved_settings)
     object_storage = S3ObjectStorage(settings=resolved_settings)
-    distributed_lock_manager = RedisDistributedLockManager(redis_client=redis_client)
+    redis_lock_manager = RedisDistributedLockManager(redis_client=redis_client)
+    distributed_lock_manager: DistributedLockManager = redis_lock_manager
+    if engine.dialect.name == "postgresql":
+        postgres_lock_manager = PostgresAdvisoryLockManager(database_engine=engine)
+        distributed_lock_manager = CompositeDistributedLockManager(
+            lock_managers=[redis_lock_manager, postgres_lock_manager]
+        )
     openai_client_wrapper = OpenAIClientWrapper(settings=resolved_settings)
     recipe_text_generation_provider = OpenAIRecipeTextGenerationProvider(
         openai_client_wrapper=openai_client_wrapper

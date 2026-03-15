@@ -6,7 +6,10 @@ from contextlib import contextmanager
 from datetime import datetime
 
 from app.application.ports.locking import DistributedLockManager
-from app.application.ports.providers import RecipeImageGenerationProvider, RecipeTextGenerationProvider
+from app.application.ports.providers import (
+    RecipeImageGenerationProvider,
+    RecipeTextGenerationProvider,
+)
 from app.application.ports.storage import ObjectStorage
 from app.domain.entities import GeneratedImageAsset, GeneratedRecipePayload, StoredObject
 
@@ -72,9 +75,13 @@ class FakeObjectStorage(ObjectStorage):
         self.objects: dict[str, bytes] = {}
         self.deleted_keys: list[str] = []
 
-    def upload_bytes(self, *, storage_key: str, content_bytes: bytes, content_type: str) -> StoredObject:
+    def upload_bytes(
+        self, *, storage_key: str, content_bytes: bytes, content_type: str
+    ) -> StoredObject:
         self.objects[storage_key] = content_bytes
-        return StoredObject(storage_key=storage_key, public_url=f"https://example.test/{storage_key}")
+        return StoredObject(
+            storage_key=storage_key, public_url=f"https://example.test/{storage_key}"
+        )
 
     def delete_object(self, *, storage_key: str) -> None:
         self.deleted_keys.append(storage_key)
@@ -106,3 +113,10 @@ class FakeDistributedLockManager(DistributedLockManager):
             yield None
             return
         yield object()
+
+
+class NoopAdminRateLimiter:
+    """Admin rate limiter stub for integration tests."""
+
+    def enforce(self, *, request, admin_identity) -> None:
+        _ = (request, admin_identity)

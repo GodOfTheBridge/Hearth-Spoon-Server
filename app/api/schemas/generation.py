@@ -36,7 +36,7 @@ class GenerationJobResponse(BaseModel):
     created_at: datetime
 
     @classmethod
-    def from_domain(cls, generation_job: GenerationJob) -> "GenerationJobResponse":
+    def from_domain(cls, generation_job: GenerationJob) -> GenerationJobResponse:
         """Build a response from the domain entity."""
 
         return cls(
@@ -64,7 +64,7 @@ class RunGenerationNowResponse(BaseModel):
     message: str
 
     @classmethod
-    def from_result(cls, result: GenerationExecutionResult) -> "RunGenerationNowResponse":
+    def from_result(cls, result: GenerationExecutionResult) -> RunGenerationNowResponse:
         """Build a response from the application result."""
 
         return cls(

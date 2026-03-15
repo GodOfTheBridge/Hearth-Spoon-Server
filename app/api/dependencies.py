@@ -33,6 +33,9 @@ def get_database_session(
     session = container.session_factory()
     try:
         yield session
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 

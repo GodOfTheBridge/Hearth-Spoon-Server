@@ -16,7 +16,7 @@ class RedisDistributedLock(DistributedLock):
     def __init__(self, *, lock: redis.lock.Lock) -> None:
         self._lock = lock
 
-    def __enter__(self) -> "RedisDistributedLock":
+    def __enter__(self) -> RedisDistributedLock:
         """Enter the lock context."""
 
         return self

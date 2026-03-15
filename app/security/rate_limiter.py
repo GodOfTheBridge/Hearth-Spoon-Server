@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import cast
 
 import redis
 import structlog
@@ -23,7 +24,7 @@ class AdminRateLimiter:
     def enforce(self, *, request: Request, admin_identity: AdminIdentity) -> None:
         """Raise HTTP 429 when the admin request exceeds the configured rate."""
 
-        current_minute_bucket = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
+        current_minute_bucket = datetime.now(UTC).strftime("%Y%m%d%H%M")
         client_host = request.client.host if request.client is not None else "unknown"
         rate_limit_key = (
             "rate-limit:admin:"
@@ -31,7 +32,7 @@ class AdminRateLimiter:
         )
 
         try:
-            current_count = self._redis_client.incr(rate_limit_key)
+            current_count = cast(int, self._redis_client.incr(rate_limit_key))
             if current_count == 1:
                 self._redis_client.expire(rate_limit_key, 60)
         except redis.RedisError as error:

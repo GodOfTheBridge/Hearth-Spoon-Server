@@ -38,7 +38,11 @@ def configure_logging(settings: Settings) -> None:
             },
             "loggers": {
                 "": {"handlers": ["default"], "level": settings.log_level, "propagate": False},
-                "uvicorn": {"handlers": ["default"], "level": settings.log_level, "propagate": False},
+                "uvicorn": {
+                    "handlers": ["default"],
+                    "level": settings.log_level,
+                    "propagate": False,
+                },
                 "uvicorn.error": {
                     "handlers": ["default"],
                     "level": settings.log_level,

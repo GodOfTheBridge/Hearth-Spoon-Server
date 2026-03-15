@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from app.application.exceptions import DatabaseOperationError
+from app.application.models import CreateRecipeImageCommand
 from app.application.services.generation_service import RecipeGenerationService
 from app.application.services.image_prompt_builder import ImagePromptBuilder
 from app.application.services.recipe_prompt_builder import RecipePromptBuilder
@@ -70,7 +71,7 @@ def test_generation_service_is_idempotent_for_the_same_slot(sqlite_session_facto
         object_storage=object_storage,
     )
 
-    slot_time_utc = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+    slot_time_utc = datetime(2026, 3, 15, 12, 0, tzinfo=UTC)
     first_result = generation_service.run_for_slot(
         slot_time_utc=slot_time_utc,
         requested_by="test-suite",
@@ -84,6 +85,7 @@ def test_generation_service_is_idempotent_for_the_same_slot(sqlite_session_facto
     assert second_result.was_created is False
     assert text_provider.call_count == 1
     assert image_provider.call_count == 1
+    assert first_result.recipe is not None
     assert second_result.recipe is not None
     assert second_result.recipe.id == first_result.recipe.id
 
@@ -91,11 +93,14 @@ def test_generation_service_is_idempotent_for_the_same_slot(sqlite_session_facto
 class FailingRecipeRepository(SqlAlchemyRecipeRepository):
     """Repository that fails after recipe creation to test compensation."""
 
-    def create_recipe_image(self, command):  # type: ignore[override]
+    def create_recipe_image(self, command: CreateRecipeImageCommand) -> None:
+        _ = command
         raise DatabaseOperationError("Simulated database failure after upload.")
 
 
-def test_generation_service_deletes_uploaded_image_on_database_failure(sqlite_session_factory) -> None:
+def test_generation_service_deletes_uploaded_image_on_database_failure(
+    sqlite_session_factory,
+) -> None:
     """A failed database write after upload should trigger storage cleanup."""
 
     text_provider = FakeRecipeTextGenerationProvider(payload=build_generated_recipe_payload())
@@ -109,7 +114,7 @@ def test_generation_service_deletes_uploaded_image_on_database_failure(sqlite_se
         recipe_repository_factory=FailingRecipeRepository,
     )
 
-    slot_time_utc = datetime(2026, 3, 15, 13, 0, tzinfo=timezone.utc)
+    slot_time_utc = datetime(2026, 3, 15, 13, 0, tzinfo=UTC)
 
     with pytest.raises(DatabaseOperationError):
         generation_service.run_for_slot(slot_time_utc=slot_time_utc, requested_by="test-suite")

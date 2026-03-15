@@ -20,7 +20,9 @@ def build_generated_recipe_payload() -> GeneratedRecipePayload:
         {
             "title": "Сливочная паста с грибами",
             "subtitle": "Быстрый домашний ужин",
-            "story_or_intro": "Нежная паста с насыщенным грибным вкусом для спокойного домашнего вечера.",
+            "story_or_intro": (
+                "Нежная паста с насыщенным грибным вкусом для спокойного домашнего вечера."
+            ),
             "servings": 2,
             "preparation_time_minutes": 15,
             "cooking_time_minutes": 20,

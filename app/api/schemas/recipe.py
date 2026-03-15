@@ -8,7 +8,13 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.application.ports.storage import ObjectStorage
-from app.domain.entities import RecipeAggregate, RecipeGenerationParameters, RecipeImage, RecipeIngredient, RecipeStep
+from app.domain.entities import (
+    RecipeAggregate,
+    RecipeGenerationParameters,
+    RecipeImage,
+    RecipeIngredient,
+    RecipeStep,
+)
 
 
 class RecipeIngredientResponse(BaseModel):
@@ -22,7 +28,7 @@ class RecipeIngredientResponse(BaseModel):
     notes: str
 
     @classmethod
-    def from_domain(cls, ingredient: RecipeIngredient) -> "RecipeIngredientResponse":
+    def from_domain(cls, ingredient: RecipeIngredient) -> RecipeIngredientResponse:
         return cls(**ingredient.model_dump())
 
 
@@ -39,7 +45,7 @@ class RecipeStepResponse(BaseModel):
     warnings: list[str]
 
     @classmethod
-    def from_domain(cls, recipe_step: RecipeStep) -> "RecipeStepResponse":
+    def from_domain(cls, recipe_step: RecipeStep) -> RecipeStepResponse:
         return cls(**recipe_step.model_dump())
 
 
@@ -60,7 +66,7 @@ class RecipeGenerationParametersResponse(BaseModel):
     def from_domain(
         cls,
         parameters: RecipeGenerationParameters,
-    ) -> "RecipeGenerationParametersResponse":
+    ) -> RecipeGenerationParametersResponse:
         return cls(**parameters.model_dump())
 
 
@@ -84,7 +90,7 @@ class RecipeImageResponse(BaseModel):
         cls,
         recipe_image: RecipeImage,
         object_storage: ObjectStorage,
-    ) -> "RecipeImageResponse":
+    ) -> RecipeImageResponse:
         image_url = recipe_image.public_url or object_storage.build_read_url(
             storage_key=recipe_image.storage_key
         )
@@ -125,7 +131,7 @@ class RecipeSummaryResponse(BaseModel):
         cls,
         recipe_aggregate: RecipeAggregate,
         object_storage: ObjectStorage,
-    ) -> "RecipeSummaryResponse":
+    ) -> RecipeSummaryResponse:
         return cls(
             id=recipe_aggregate.recipe.id,
             title=recipe_aggregate.recipe.title,
@@ -180,7 +186,7 @@ class RecipeDetailResponse(BaseModel):
         cls,
         recipe_aggregate: RecipeAggregate,
         object_storage: ObjectStorage,
-    ) -> "RecipeDetailResponse":
+    ) -> RecipeDetailResponse:
         recipe = recipe_aggregate.recipe
         return cls(
             id=recipe.id,

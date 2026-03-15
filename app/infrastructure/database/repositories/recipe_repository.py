@@ -14,7 +14,7 @@ from app.domain.entities import Recipe, RecipeAggregate
 from app.domain.enums import PublicationStatus
 from app.domain.exceptions import NotFoundError
 from app.infrastructure.database.mappers import map_recipe_aggregate, map_recipe_model_to_domain
-from app.infrastructure.database.models import RecipeModel
+from app.infrastructure.database.models import RecipeImageModel, RecipeModel
 
 
 class SqlAlchemyRecipeRepository(RecipeRepository):
@@ -50,7 +50,9 @@ class SqlAlchemyRecipeRepository(RecipeRepository):
             .offset(offset)
         )
         recipe_models = self._session.execute(statement).unique().scalars().all()
-        return [map_recipe_aggregate(recipe_model, recipe_model.image) for recipe_model in recipe_models]
+        return [
+            map_recipe_aggregate(recipe_model, recipe_model.image) for recipe_model in recipe_models
+        ]
 
     def get_published_by_id(self, recipe_id: UUID) -> RecipeAggregate | None:
         """Return a published recipe by identifier."""
@@ -92,13 +94,18 @@ class SqlAlchemyRecipeRepository(RecipeRepository):
             cooking_time_minutes=command.generated_recipe.cooking_time_minutes,
             preparation_time_minutes=command.generated_recipe.preparation_time_minutes,
             difficulty_level=command.generated_recipe.difficulty_level,
-            ingredients=[ingredient.model_dump(mode="json") for ingredient in command.generated_recipe.ingredients],
+            ingredients=[
+                ingredient.model_dump(mode="json")
+                for ingredient in command.generated_recipe.ingredients
+            ],
             tools=command.generated_recipe.tools,
             steps=[step.model_dump(mode="json") for step in command.generated_recipe.steps],
             cooking_tips=command.generated_recipe.cooking_tips,
             plating_tips=command.generated_recipe.plating_tips,
             style_tags=command.generated_recipe.style_tags,
-            source_generation_parameters=command.source_generation_parameters.model_dump(mode="json"),
+            source_generation_parameters=command.source_generation_parameters.model_dump(
+                mode="json"
+            ),
             image_prompt=command.image_prompt,
             moderation_status=command.moderation_status,
             publication_status=command.publication_status,

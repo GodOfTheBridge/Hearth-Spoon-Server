@@ -23,7 +23,9 @@ def build_argument_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("run-hourly-slot", help="Generate a recipe for the current UTC hour slot")
 
-    run_slot_parser = subparsers.add_parser("run-slot", help="Generate a recipe for a specific UTC slot")
+    run_slot_parser = subparsers.add_parser(
+        "run-slot", help="Generate a recipe for a specific UTC slot"
+    )
     run_slot_parser.add_argument(
         "--slot-time-utc",
         required=True,
@@ -43,10 +45,10 @@ def _parse_slot_time(slot_time_utc: str) -> datetime:
 def main(argv: list[str] | None = None) -> int:
     """Run the worker CLI."""
 
-    settings = get_settings()
-    configure_logging(settings)
     parser = build_argument_parser()
     arguments = parser.parse_args(argv)
+    settings = get_settings()
+    configure_logging(settings)
     container = build_application_container(settings)
 
     try:

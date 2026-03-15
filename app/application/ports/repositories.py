@@ -8,7 +8,12 @@ from uuid import UUID
 
 from app.application.models import CreateRecipeCommand, CreateRecipeImageCommand
 from app.domain.entities import GenerationJob, GenerationScheduleSlot, Recipe, RecipeAggregate
-from app.domain.enums import GenerationJobStatus, GenerationJobType, GenerationSlotStatus, GenerationType
+from app.domain.enums import (
+    GenerationJobStatus,
+    GenerationJobType,
+    GenerationSlotStatus,
+    GenerationType,
+)
 
 
 class RecipeRepository(ABC):

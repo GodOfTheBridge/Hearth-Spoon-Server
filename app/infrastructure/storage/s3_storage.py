@@ -24,12 +24,15 @@ class S3ObjectStorage(ObjectStorage):
 
     def __init__(self, *, settings: Settings) -> None:
         self._settings = settings
-        self._client = self._build_client()
+        self._upload_client = self._build_client(endpoint_url=self._settings.s3_endpoint_url)
+        self._read_client = self._build_client(
+            endpoint_url=self._settings.s3_public_endpoint_url or self._settings.s3_endpoint_url
+        )
 
-    def _build_client(self) -> BaseClient:
+    def _build_client(self, *, endpoint_url: str) -> BaseClient:
         return boto3.client(
             "s3",
-            endpoint_url=self._settings.s3_endpoint_url,
+            endpoint_url=endpoint_url,
             region_name=self._settings.s3_region_name,
             aws_access_key_id=self._settings.s3_access_key_id,
             aws_secret_access_key=self._settings.s3_secret_access_key.get_secret_value(),
@@ -58,7 +61,7 @@ class S3ObjectStorage(ObjectStorage):
                 reraise=True,
             ):
                 with attempt:
-                    self._client.put_object(
+                    self._upload_client.put_object(
                         Bucket=self._settings.s3_bucket_name,
                         Key=storage_key,
                         Body=content_bytes,
@@ -80,7 +83,7 @@ class S3ObjectStorage(ObjectStorage):
         """Delete an object from storage."""
 
         try:
-            self._client.delete_object(Bucket=self._settings.s3_bucket_name, Key=storage_key)
+            self._upload_client.delete_object(Bucket=self._settings.s3_bucket_name, Key=storage_key)
         except (BotoCoreError, ClientError) as error:
             raise StorageOperationError("Failed to delete object from storage.") from error
 
@@ -91,7 +94,7 @@ class S3ObjectStorage(ObjectStorage):
             return f"{self._settings.s3_public_base_url.rstrip('/')}/{quote(storage_key, safe='/')}"
 
         try:
-            return self._client.generate_presigned_url(
+            return self._read_client.generate_presigned_url(
                 ClientMethod="get_object",
                 Params={"Bucket": self._settings.s3_bucket_name, "Key": storage_key},
                 ExpiresIn=self._settings.s3_presigned_url_expiration_seconds,
@@ -102,5 +105,5 @@ class S3ObjectStorage(ObjectStorage):
     def check_bucket_access(self) -> bool:
         """Check whether the configured bucket is reachable."""
 
-        self._client.head_bucket(Bucket=self._settings.s3_bucket_name)
+        self._upload_client.head_bucket(Bucket=self._settings.s3_bucket_name)
         return True

@@ -18,7 +18,8 @@ class RecipePromptBuilder:
             "Generate one original, realistic, cookable home recipe. "
             "The recipe must be safe, family-friendly, achievable with common kitchen tools, "
             "and written in Russian. Do not include markdown, explanations, or extra keys. "
-            "Respect the provided constraints exactly and produce content that matches the JSON schema."
+            "Respect the provided constraints exactly and produce content that "
+            "matches the JSON schema."
         )
 
     def build_user_prompt(

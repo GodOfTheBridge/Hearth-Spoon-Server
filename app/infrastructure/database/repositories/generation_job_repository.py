@@ -6,8 +6,10 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
+from app.application.exceptions import DatabaseOperationError
 from app.application.ports.repositories import GenerationJobRepository
 from app.domain.entities import GenerationJob
 from app.domain.enums import GenerationJobStatus, GenerationJobType
@@ -83,7 +85,17 @@ class SqlAlchemyGenerationJobRepository(GenerationJobRepository):
             provider_request_metadata=provider_request_metadata,
         )
         self._session.add(job_model)
-        self._session.flush()
+        try:
+            self._session.flush()
+        except IntegrityError as error:
+            self._session.rollback()
+            existing_job_model = self._session.execute(statement).unique().scalars().first()
+            if existing_job_model is None:
+                raise DatabaseOperationError(
+                    "Failed to resolve generation job after duplicate insert race."
+                ) from error
+            return map_generation_job_model_to_domain(existing_job_model)
+
         reloaded_statement = (
             select(GenerationJobModel)
             .options(joinedload(GenerationJobModel.schedule_slot))

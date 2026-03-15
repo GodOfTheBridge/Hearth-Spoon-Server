@@ -25,6 +25,7 @@ class ImagePromptBuilder:
             f"Style tags: {style_tags}. "
             f"Plating guidance: {plating_tips}. "
             f"Image style: {generation_parameters.image_style}. "
-            "Single plated serving, realistic texture, appetizing lighting, shallow depth of field, "
-            "high detail, clean table styling, no hands, no packaging, no visible text, no watermark."
+            "Single plated serving, realistic texture, appetizing lighting, "
+            "shallow depth of field, high detail, clean table styling, "
+            "no hands, no packaging, no visible text, no watermark."
         )

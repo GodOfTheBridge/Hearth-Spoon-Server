@@ -2,16 +2,29 @@
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from app.application.ports.providers import RecipeImageGenerationProvider
 from app.domain.constants import OPENAI_PROVIDER_NAME
 from app.domain.entities import GeneratedImageAsset
-from app.infrastructure.providers.openai.client import OpenAIClientWrapper
+
+
+class ImageGenerationClient(Protocol):
+    """Protocol for the subset of client functionality needed by this provider."""
+
+    def generate_image(
+        self,
+        *,
+        prompt: str,
+        safety_identifier: str,
+    ) -> tuple[bytes, str, dict[str, object]]:
+        """Generate an image."""
 
 
 class OpenAIRecipeImageGenerationProvider(RecipeImageGenerationProvider):
     """Generate recipe images with the OpenAI Images API."""
 
-    def __init__(self, *, openai_client_wrapper: OpenAIClientWrapper, model_name: str) -> None:
+    def __init__(self, *, openai_client_wrapper: ImageGenerationClient, model_name: str) -> None:
         self._openai_client_wrapper = openai_client_wrapper
         self._model_name = model_name
 

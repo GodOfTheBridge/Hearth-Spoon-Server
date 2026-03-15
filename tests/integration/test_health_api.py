@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 
@@ -16,7 +16,7 @@ class FakeHealthService:
     def check(self) -> dict[str, object]:
         return {
             "status": "healthy",
-            "timestamp_utc": datetime.now(timezone.utc),
+            "timestamp_utc": datetime.now(UTC),
             "components": {
                 "database": {"status": "healthy"},
                 "redis": {"status": "healthy"},

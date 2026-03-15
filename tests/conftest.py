@@ -26,9 +26,10 @@ def configured_test_environment(monkeypatch: pytest.MonkeyPatch) -> Generator[No
         "S3_SECRET_ACCESS_KEY": "test-secret-key",
         "S3_USE_SSL": "false",
         "S3_PUBLIC_BASE_URL": "https://cdn.example.test/test-bucket",
+        "S3_PUBLIC_ENDPOINT_URL": "https://cdn.example.test",
         "OPENAI_API_KEY": "test-openai-key",
         "OPENAI_PROJECT_ID": "",
-        "ADMIN_BEARER_TOKEN": "test-admin-token",
+        "ADMIN_BEARER_TOKEN": "test-admin-token-which-is-long-enough",
         "ALLOWED_CORS_ORIGINS": "http://localhost:3000",
     }
 

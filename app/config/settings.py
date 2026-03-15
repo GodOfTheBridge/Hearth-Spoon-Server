@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -19,7 +20,9 @@ class Settings(BaseSettings):
     )
 
     app_name: str = Field(default="ПечьДаЛожка Backend", validation_alias=AliasChoices("APP_NAME"))
-    app_environment: str = Field(default="development", validation_alias=AliasChoices("APP_ENVIRONMENT"))
+    app_environment: str = Field(
+        default="development", validation_alias=AliasChoices("APP_ENVIRONMENT")
+    )
     app_debug: bool = Field(default=False, validation_alias=AliasChoices("APP_DEBUG"))
     app_host: str = Field(default="0.0.0.0", validation_alias=AliasChoices("APP_HOST"))
     app_port: int = Field(default=8000, validation_alias=AliasChoices("APP_PORT"))
@@ -29,20 +32,32 @@ class Settings(BaseSettings):
     redis_url: str = Field(validation_alias=AliasChoices("REDIS_URL"))
 
     s3_endpoint_url: str = Field(validation_alias=AliasChoices("S3_ENDPOINT_URL"))
-    s3_region_name: str = Field(default="us-east-1", validation_alias=AliasChoices("S3_REGION_NAME"))
+    s3_region_name: str = Field(
+        default="us-east-1", validation_alias=AliasChoices("S3_REGION_NAME")
+    )
     s3_bucket_name: str = Field(validation_alias=AliasChoices("S3_BUCKET_NAME"))
     s3_access_key_id: str = Field(validation_alias=AliasChoices("S3_ACCESS_KEY_ID"))
     s3_secret_access_key: SecretStr = Field(validation_alias=AliasChoices("S3_SECRET_ACCESS_KEY"))
     s3_use_ssl: bool = Field(default=False, validation_alias=AliasChoices("S3_USE_SSL"))
-    s3_public_base_url: str | None = Field(default=None, validation_alias=AliasChoices("S3_PUBLIC_BASE_URL"))
+    s3_public_base_url: str | None = Field(
+        default=None, validation_alias=AliasChoices("S3_PUBLIC_BASE_URL")
+    )
+    s3_public_endpoint_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("S3_PUBLIC_ENDPOINT_URL"),
+    )
     s3_presigned_url_expiration_seconds: int = Field(
         default=900,
         validation_alias=AliasChoices("S3_PRESIGNED_URL_EXPIRATION_SECONDS"),
     )
 
     openai_api_key: SecretStr = Field(validation_alias=AliasChoices("OPENAI_API_KEY"))
-    openai_project_id: str | None = Field(default=None, validation_alias=AliasChoices("OPENAI_PROJECT_ID"))
-    openai_text_model: str = Field(default="gpt-5-mini", validation_alias=AliasChoices("OPENAI_TEXT_MODEL"))
+    openai_project_id: str | None = Field(
+        default=None, validation_alias=AliasChoices("OPENAI_PROJECT_ID")
+    )
+    openai_text_model: str = Field(
+        default="gpt-5-mini", validation_alias=AliasChoices("OPENAI_TEXT_MODEL")
+    )
     openai_image_model: str = Field(
         default="gpt-image-1.5",
         validation_alias=AliasChoices("OPENAI_IMAGE_MODEL"),
@@ -65,7 +80,7 @@ class Settings(BaseSettings):
     )
 
     admin_bearer_token: SecretStr = Field(validation_alias=AliasChoices("ADMIN_BEARER_TOKEN"))
-    allowed_cors_origins: list[str] = Field(
+    allowed_cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=list,
         validation_alias=AliasChoices("ALLOWED_CORS_ORIGINS"),
     )
@@ -99,7 +114,7 @@ class Settings(BaseSettings):
         default="balanced",
         validation_alias=AliasChoices("DEFAULT_DIETARY_CONTEXT"),
     )
-    default_excluded_ingredients: list[str] = Field(
+    default_excluded_ingredients: Annotated[list[str], NoDecode] = Field(
         default_factory=list,
         validation_alias=AliasChoices("DEFAULT_EXCLUDED_INGREDIENTS"),
     )
@@ -158,6 +173,15 @@ class Settings(BaseSettings):
         """Normalize environment labels."""
 
         return raw_value.lower().strip()
+
+    @field_validator("admin_bearer_token")
+    @classmethod
+    def validate_admin_bearer_token_strength(cls, raw_value: SecretStr) -> SecretStr:
+        """Require a minimally strong admin token outside tests."""
+
+        if len(raw_value.get_secret_value().strip()) < 24:
+            raise ValueError("ADMIN_BEARER_TOKEN must be at least 24 characters long.")
+        return raw_value
 
 
 @lru_cache(maxsize=1)

@@ -12,7 +12,9 @@ from app.domain.time import get_current_utc_datetime
 class HealthService:
     """Check database, Redis and object storage dependencies."""
 
-    def __init__(self, *, database_engine: Engine, redis_client, object_storage: ObjectStorage) -> None:
+    def __init__(
+        self, *, database_engine: Engine, redis_client, object_storage: ObjectStorage
+    ) -> None:
         self._database_engine = database_engine
         self._redis_client = redis_client
         self._object_storage = object_storage

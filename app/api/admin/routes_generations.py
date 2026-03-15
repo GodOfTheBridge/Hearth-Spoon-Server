@@ -6,7 +6,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from app.api.dependencies import get_generation_query_service, get_generation_service, require_admin_access
+from app.api.dependencies import (
+    get_generation_query_service,
+    get_generation_service,
+    require_admin_access,
+)
 from app.api.schemas.generation import (
     GenerationJobResponse,
     RunGenerationNowRequest,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
@@ -23,7 +24,7 @@ from app.infrastructure.database.base import Base
 from app.infrastructure.database.types import JSON_VARIANT
 
 
-def build_enum_column(enum_type: type[sa.Enum]) -> sa.Enum:
+def build_enum_column(enum_type: type[Enum]) -> sa.Enum:
     """Create a string-backed enum column definition."""
 
     return sa.Enum(enum_type, native_enum=False, length=64)
@@ -51,7 +52,9 @@ class RecipeModel(Base):
     source_generation_parameters: Mapped[dict[str, object]] = mapped_column(JSON_VARIANT)
     image_prompt: Mapped[str] = mapped_column(sa.Text())
     moderation_status: Mapped[ModerationStatus] = mapped_column(build_enum_column(ModerationStatus))
-    publication_status: Mapped[PublicationStatus] = mapped_column(build_enum_column(PublicationStatus))
+    publication_status: Mapped[PublicationStatus] = mapped_column(
+        build_enum_column(PublicationStatus)
+    )
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True),
         default=get_current_utc_datetime,
@@ -63,7 +66,7 @@ class RecipeModel(Base):
     )
     published_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
 
-    image: Mapped["RecipeImageModel | None"] = relationship(
+    image: Mapped[RecipeImageModel | None] = relationship(
         back_populates="recipe",
         uselist=False,
         cascade="all, delete-orphan",
@@ -118,7 +121,7 @@ class GenerationScheduleSlotModel(Base):
         default=get_current_utc_datetime,
     )
 
-    jobs: Mapped[list["GenerationJobModel"]] = relationship(back_populates="schedule_slot")
+    jobs: Mapped[list[GenerationJobModel]] = relationship(back_populates="schedule_slot")
 
 
 class GenerationJobModel(Base):

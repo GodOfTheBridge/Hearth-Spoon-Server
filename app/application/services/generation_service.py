@@ -14,9 +14,16 @@ from app.application.exceptions import (
     IdempotencyConflictError,
     RetryExhaustedError,
 )
-from app.application.models import CreateRecipeCommand, CreateRecipeImageCommand, GenerationExecutionResult
+from app.application.models import (
+    CreateRecipeCommand,
+    CreateRecipeImageCommand,
+    GenerationExecutionResult,
+)
 from app.application.ports.locking import DistributedLockManager
-from app.application.ports.providers import RecipeImageGenerationProvider, RecipeTextGenerationProvider
+from app.application.ports.providers import (
+    RecipeImageGenerationProvider,
+    RecipeTextGenerationProvider,
+)
 from app.application.ports.repositories import (
     GenerationJobRepository,
     GenerationScheduleSlotRepository,
@@ -113,7 +120,8 @@ class RecipeGenerationService:
         ) as acquired_lock:
             if acquired_lock is None:
                 raise IdempotencyConflictError(
-                    f"Generation for slot {normalized_slot_time_utc.isoformat()} is already running."
+                    "Generation for slot "
+                    f"{normalized_slot_time_utc.isoformat()} is already running."
                 )
             return self._execute_generation(
                 normalized_slot_time_utc=normalized_slot_time_utc,
@@ -248,19 +256,27 @@ class RecipeGenerationService:
                 },
             )
         except Exception as error:  # noqa: BLE001
-            failure_metadata = {
+            failure_metadata: dict[str, object] = {
                 "text_generation": text_response_metadata,
                 "image_generation": image_response_metadata,
                 "storage_key": storage_key,
             }
-            self._handle_failure(
-                job_id=job.id,
-                schedule_slot_id=schedule_slot.id,
-                existing_retry_count=job.retry_count,
-                storage_key=storage_key,
-                failure_metadata=failure_metadata,
-                error=error,
-            )
+            try:
+                self._handle_failure(
+                    job_id=job.id,
+                    schedule_slot_id=schedule_slot.id,
+                    existing_retry_count=job.retry_count,
+                    storage_key=storage_key,
+                    failure_metadata=failure_metadata,
+                    error=error,
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception(
+                    "generation.job.failure_handler_failed",
+                    job_id=str(job.id),
+                    schedule_slot_id=str(schedule_slot.id),
+                    original_error_type=type(error).__name__,
+                )
             raise
 
     def _prepare_job(
@@ -272,15 +288,25 @@ class RecipeGenerationService:
     ):
         with self._session_factory() as session:
             slot_repository = self._generation_schedule_slot_repository_factory(session)
-            job_repository = self._generation_job_repository_factory(session)
-
             schedule_slot = slot_repository.get_or_create_slot(
                 slot_time_utc=slot_time_utc,
                 generation_type=GenerationType.HOURLY_RECIPE,
             )
+            session.commit()
+
+        with self._session_factory() as session:
+            slot_repository = self._generation_schedule_slot_repository_factory(session)
+            job_repository = self._generation_job_repository_factory(session)
+
+            persisted_schedule_slot = slot_repository.get_by_id(schedule_slot.id)
+            if persisted_schedule_slot is None:
+                raise DatabaseOperationError(
+                    f"Generation schedule slot '{schedule_slot.id}' was not found after creation."
+                )
+
             job = job_repository.create_or_get_job(
                 job_type=GenerationJobType.HOURLY_RECIPE_GENERATION,
-                schedule_slot_id=schedule_slot.id,
+                schedule_slot_id=persisted_schedule_slot.id,
                 idempotency_key=idempotency_key,
                 provider_request_metadata=request_metadata,
             )
@@ -296,8 +322,8 @@ class RecipeGenerationService:
                     f"Generation retries are exhausted for slot {slot_time_utc.isoformat()}."
                 )
             if job.status != GenerationJobStatus.COMPLETED:
-                schedule_slot = slot_repository.update_slot_status(
-                    slot_id=schedule_slot.id,
+                persisted_schedule_slot = slot_repository.update_slot_status(
+                    slot_id=persisted_schedule_slot.id,
                     status=GenerationSlotStatus.RUNNING,
                     locked_at=get_current_utc_datetime(),
                 )
@@ -313,7 +339,7 @@ class RecipeGenerationService:
                 )
                 session.commit()
 
-            return schedule_slot, job
+            return persisted_schedule_slot, job
 
     def _persist_success(
         self,
@@ -327,8 +353,8 @@ class RecipeGenerationService:
         image_response_metadata: dict[str, object],
         storage_key: str,
     ) -> Recipe:
-        try:
-            with self._session_factory() as session:
+        with self._session_factory() as session:
+            try:
                 recipe_repository = self._recipe_repository_factory(session)
                 slot_repository = self._generation_schedule_slot_repository_factory(session)
                 job_repository = self._generation_job_repository_factory(session)
@@ -345,13 +371,15 @@ class RecipeGenerationService:
 
                 existing_job = job_repository.get_by_id(job_id)
                 if existing_job is None:
-                    raise DatabaseOperationError(f"Generation job '{job_id}' disappeared unexpectedly.")
+                    raise DatabaseOperationError(
+                        f"Generation job '{job_id}' disappeared unexpectedly."
+                    )
 
                 provider_request_metadata = dict(existing_job.provider_request_metadata)
                 provider_request_metadata["text_generation"] = text_request_metadata
                 provider_request_metadata["image_prompt"] = create_recipe_command.image_prompt
 
-                provider_response_metadata = {
+                provider_response_metadata: dict[str, object] = {
                     "recipe_id": str(recipe.id),
                     "text_generation": text_response_metadata,
                     "image_generation": image_response_metadata,
@@ -370,8 +398,9 @@ class RecipeGenerationService:
                 )
                 session.commit()
                 return recipe
-        except Exception as error:  # noqa: BLE001
-            raise DatabaseOperationError("Failed to persist the generated recipe.") from error
+            except Exception as error:  # noqa: BLE001
+                session.rollback()
+                raise DatabaseOperationError("Failed to persist the generated recipe.") from error
 
     def _handle_failure(
         self,
@@ -391,28 +420,34 @@ class RecipeGenerationService:
                 failure_metadata["storage_cleanup"] = "delete_failed"
 
         with self._session_factory() as session:
-            slot_repository = self._generation_schedule_slot_repository_factory(session)
-            job_repository = self._generation_job_repository_factory(session)
-            existing_job = job_repository.get_by_id(job_id)
-            if existing_job is None:
-                raise DatabaseOperationError(f"Generation job '{job_id}' disappeared unexpectedly.")
+            try:
+                slot_repository = self._generation_schedule_slot_repository_factory(session)
+                job_repository = self._generation_job_repository_factory(session)
+                existing_job = job_repository.get_by_id(job_id)
+                if existing_job is None:
+                    raise DatabaseOperationError(
+                        f"Generation job '{job_id}' disappeared unexpectedly."
+                    )
 
-            slot_repository.update_slot_status(
-                slot_id=schedule_slot_id,
-                status=GenerationSlotStatus.FAILED,
-                locked_at=get_current_utc_datetime(),
-            )
-            job_repository.update_job_status(
-                job_id=job_id,
-                status=GenerationJobStatus.FAILED,
-                started_at=existing_job.started_at,
-                finished_at=get_current_utc_datetime(),
-                error_message=str(error),
-                retry_count=existing_retry_count + 1,
-                provider_request_metadata=existing_job.provider_request_metadata,
-                provider_response_metadata=failure_metadata,
-            )
-            session.commit()
+                slot_repository.update_slot_status(
+                    slot_id=schedule_slot_id,
+                    status=GenerationSlotStatus.FAILED,
+                    locked_at=get_current_utc_datetime(),
+                )
+                job_repository.update_job_status(
+                    job_id=job_id,
+                    status=GenerationJobStatus.FAILED,
+                    started_at=existing_job.started_at,
+                    finished_at=get_current_utc_datetime(),
+                    error_message=str(error),
+                    retry_count=existing_retry_count + 1,
+                    provider_request_metadata=existing_job.provider_request_metadata,
+                    provider_response_metadata=failure_metadata,
+                )
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
 
         logger.exception(
             "generation.job.failed",
@@ -426,7 +461,9 @@ class RecipeGenerationService:
             job_repository = self._generation_job_repository_factory(session)
             job = job_repository.get_by_id(job_id)
             if job is None:
-                raise DatabaseOperationError(f"Generation job '{job_id}' was not found after completion.")
+                raise DatabaseOperationError(
+                    f"Generation job '{job_id}' was not found after completion."
+                )
             return job
 
     def _load_slot(self, schedule_slot_id: UUID):

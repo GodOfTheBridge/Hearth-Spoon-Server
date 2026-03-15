@@ -5,7 +5,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from app.domain.entities import GeneratedImageAsset, GeneratedRecipePayload, RecipeGenerationParameters
+from app.domain.entities import (
+    GeneratedImageAsset,
+    GeneratedRecipePayload,
+    RecipeGenerationParameters,
+)
 
 
 class RecipeTextGenerationProvider(ABC):

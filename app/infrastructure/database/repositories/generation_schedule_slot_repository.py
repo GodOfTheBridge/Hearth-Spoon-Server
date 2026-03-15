@@ -6,8 +6,10 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.application.exceptions import DatabaseOperationError
 from app.application.ports.repositories import GenerationScheduleSlotRepository
 from app.domain.entities import GenerationScheduleSlot
 from app.domain.enums import GenerationSlotStatus, GenerationType
@@ -49,7 +51,15 @@ class SqlAlchemyGenerationScheduleSlotRepository(GenerationScheduleSlotRepositor
                 generation_type=generation_type,
             )
             self._session.add(slot_model)
-            self._session.flush()
+            try:
+                self._session.flush()
+            except IntegrityError as error:
+                self._session.rollback()
+                slot_model = self._session.execute(statement).scalars().first()
+                if slot_model is None:
+                    raise DatabaseOperationError(
+                        "Failed to resolve generation schedule slot after duplicate insert race."
+                    ) from error
         return map_generation_schedule_slot_model_to_domain(slot_model)
 
     def update_slot_status(

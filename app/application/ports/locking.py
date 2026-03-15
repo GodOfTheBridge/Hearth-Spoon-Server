@@ -10,7 +10,7 @@ class DistributedLock(ABC):
     """Represents an acquired distributed lock."""
 
     @abstractmethod
-    def __enter__(self) -> "DistributedLock":
+    def __enter__(self) -> DistributedLock:
         """Enter the lock context."""
 
     @abstractmethod

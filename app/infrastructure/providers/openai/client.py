@@ -7,7 +7,14 @@ import json
 from typing import Any
 
 import structlog
-from openai import APIConnectionError, APIStatusError, APITimeoutError, InternalServerError, OpenAI, RateLimitError
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    InternalServerError,
+    OpenAI,
+    RateLimitError,
+)
 from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.config.settings import Settings
@@ -60,7 +67,8 @@ class OpenAIClientWrapper:
                 reraise=True,
             ):
                 with attempt:
-                    response = self._client.responses.create(
+                    responses_client: Any = self._client.responses
+                    response = responses_client.create(
                         model=self._settings.openai_text_model,
                         input=[
                             {
@@ -83,8 +91,6 @@ class OpenAIClientWrapper:
             raise ExternalProviderError(
                 f"OpenAI text generation failed with status {error.status_code}."
             ) from error
-        except Exception as error:  # noqa: BLE001
-            raise ExternalProviderError("OpenAI text generation failed unexpectedly.") from error
 
         output_text = self._extract_output_text(response)
         try:
@@ -93,7 +99,9 @@ class OpenAIClientWrapper:
             raise ExternalProviderError("OpenAI structured response was not valid JSON.") from error
 
         response_metadata = self._build_response_metadata(response)
-        logger.info("openai.responses.request.completed", response_id=response_metadata.get("response_id"))
+        logger.info(
+            "openai.responses.request.completed", response_id=response_metadata.get("response_id")
+        )
         return raw_payload, request_metadata, response_metadata
 
     def generate_image(
@@ -119,12 +127,15 @@ class OpenAIClientWrapper:
                 reraise=True,
             ):
                 with attempt:
-                    response = self._client.images.generate(
+                    images_client: Any = self._client.images
+                    response = images_client.generate(
                         model=self._settings.openai_image_model,
                         prompt=prompt,
                         size=self._settings.image_output_size,
                         quality=self._settings.image_output_quality,
+                        response_format="b64_json",
                         output_format=self._settings.image_output_format,
+                        user=safety_identifier,
                         timeout=self._settings.openai_image_timeout_seconds,
                     )
         except TRANSIENT_OPENAI_EXCEPTIONS as error:
@@ -133,8 +144,6 @@ class OpenAIClientWrapper:
             raise ExternalProviderError(
                 f"OpenAI image generation failed with status {error.status_code}."
             ) from error
-        except Exception as error:  # noqa: BLE001
-            raise ExternalProviderError("OpenAI image generation failed unexpectedly.") from error
 
         image_payload = response.data[0]
         encoded_image = getattr(image_payload, "b64_json", None)

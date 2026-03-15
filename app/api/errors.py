@@ -87,9 +87,7 @@ def register_exception_handlers(application: FastAPI) -> None:
 
     @application.exception_handler(ExternalProviderError)
     @application.exception_handler(StorageOperationError)
-    async def handle_provider_error(
-        request: Request, exception: Exception
-    ) -> JSONResponse:
+    async def handle_provider_error(request: Request, exception: Exception) -> JSONResponse:
         return _build_error_response(
             request=request,
             detail=str(exception),

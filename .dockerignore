@@ -1,0 +1,14 @@
+.git
+.gitignore
+.venv
+.pytest_cache
+.mypy_cache
+.ruff_cache
+__pycache__
+.env
+htmlcov
+.coverage
+tests
+postgres-data
+redis-data
+minio-data

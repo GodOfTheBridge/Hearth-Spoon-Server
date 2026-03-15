@@ -83,6 +83,13 @@ def test_admin_generation_happy_path_and_publication_flow() -> None:
         assert len(object_storage.objects) == 1
 
         job_id = UUID(generation_payload["job"]["id"])
+        job_response = client.get(
+            f"/api/v1/admin/generations/{job_id}",
+            headers=headers,
+        )
+
+        assert job_response.status_code == 200
+        assert job_response.json()["status"] == "completed"
 
         with application.state.container.session_factory() as session:
             recipe_repository = SqlAlchemyRecipeRepository(session=session)
@@ -117,6 +124,21 @@ def test_admin_generation_happy_path_and_publication_flow() -> None:
         assert "provider_name" not in latest_recipe_payload["image"]
         assert "image_prompt" not in latest_recipe_payload
         assert "source_generation_parameters" not in latest_recipe_payload
+
+        recipe_by_id_response = client.get(f"/api/v1/recipes/{recipe_id}")
+        assert recipe_by_id_response.status_code == 200
+        assert recipe_by_id_response.json()["id"] == str(recipe_id)
+
+        unpublish_response = client.post(
+            f"/api/v1/admin/recipes/{recipe_id}/unpublish",
+            headers=headers,
+        )
+
+        assert unpublish_response.status_code == 200
+        assert unpublish_response.json()["publication_status"] == "unpublished"
+
+        unpublished_recipe_response = client.get(f"/api/v1/recipes/{recipe_id}")
+        assert unpublished_recipe_response.status_code == 404
 
 
 def test_admin_generation_returns_existing_result_for_same_slot() -> None:

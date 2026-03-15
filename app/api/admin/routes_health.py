@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from app.api.dependencies import get_health_service, require_admin_read_access
 from app.api.schemas.health import HealthResponse
 
-router = APIRouter(prefix="/admin/health", tags=["admin-health"])
+router = APIRouter(prefix="/admin/health", tags=["admin", "health"])
 
 
 @router.get("/readiness", response_model=HealthResponse)

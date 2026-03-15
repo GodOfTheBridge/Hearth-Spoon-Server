@@ -76,6 +76,8 @@ Release gate and VPS rollout checklist: `PRODUCTION_CHECKLIST.md`
 │   ├── security
 │   ├── bootstrap.py
 │   └── main.py
+├── api-client
+│   └── bruno
 ├── alembic
 │   ├── env.py
 │   └── versions
@@ -105,6 +107,7 @@ Release gate and VPS rollout checklist: `PRODUCTION_CHECKLIST.md`
 - `app/infrastructure/storage/s3_storage.py` - S3-compatible object storage adapter
 - `app/infrastructure/database/models.py` - SQLAlchemy models
 - `app/infrastructure/database/repositories/*.py` - repositories
+- `api-client/bruno` - Bruno collection and environments for local/admin API checks
 - `app/scheduler/cli.py` - cron-friendly job runner
 - `alembic/versions/20260315_0001_initial_schema.py` - initial database schema
 - `docker-compose.yml` - local stack with PostgreSQL, Redis, MinIO, API, Nginx
@@ -165,6 +168,64 @@ Detailed dependency readiness:
 
 ```bash
 curl -H "Authorization: Bearer YOUR_ADMIN_TOKEN" http://localhost:8000/api/v1/admin/health/readiness
+```
+
+### 7. Открыть Swagger, ReDoc и OpenAPI
+
+Swagger UI, ReDoc и `openapi.json` доступны, когда приложение запущено с `APP_ENVIRONMENT=development`
+или `APP_DEBUG=true`.
+
+При локальном запуске через `uvicorn` используйте:
+
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- OpenAPI JSON: `http://localhost:8000/openapi.json`
+
+При запуске через `docker compose up --build` те же URL будут доступны через Nginx:
+
+- Swagger UI: `http://localhost/docs`
+- ReDoc: `http://localhost/redoc`
+- OpenAPI JSON: `http://localhost/openapi.json`
+
+### 8. Использовать Bearer token в Swagger
+
+1. Откройте `/docs`.
+2. Нажмите `Authorize`.
+3. Вставьте только значение admin token без префикса `Bearer`.
+4. Нажмите `Authorize`, затем `Close`.
+5. Выполните любой endpoint из групп `admin` или `generation` через `Try it out`.
+
+Swagger UI сам отправит заголовок `Authorization: Bearer <token>`.
+
+### 9. Проверить API локально через Bruno
+
+Коллекция лежит в `api-client/bruno`.
+
+Подготовить секреты для Bruno:
+
+```bash
+cp api-client/bruno/.env.sample api-client/bruno/.env
+```
+
+Заполните `BRUNO_ADMIN_TOKEN` в `api-client/bruno/.env`, затем:
+
+1. Откройте папку `api-client/bruno` в Bruno desktop app.
+2. Выберите environment `local` для прямого `uvicorn`-запуска на `http://localhost:8000`.
+3. Выберите environment `docker` для `docker compose`-стека за Nginx на `http://localhost`.
+4. Используйте `production-template` как шаблон для реального домена без коммита секретов.
+
+CLI-запуск из корня коллекции:
+
+```bash
+cd api-client/bruno
+bru run --env-file ./environments/local.bru
+```
+
+Для Docker-стека:
+
+```bash
+cd api-client/bruno
+bru run --env-file ./environments/docker.bru
 ```
 
 ## Запуск через Docker Compose
@@ -257,6 +318,9 @@ uv run python -m app.scheduler.cli run-slot --slot-time-utc "2026-03-15T12:00:00
 - `GET /api/v1/admin/health/readiness`
 - `POST /api/v1/admin/recipes/{recipe_id}/publish`
 - `POST /api/v1/admin/recipes/{recipe_id}/unpublish`
+
+OpenAPI metadata is configured with explicit `public`, `admin`, `generation`, and `health` tags.
+Admin endpoints expose Bearer auth in Swagger UI through the `AdminBearerAuth` security scheme.
 
 ## Как мобильному приложению читать latest recipe
 

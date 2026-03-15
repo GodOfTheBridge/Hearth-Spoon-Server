@@ -7,6 +7,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from app.api.schemas.examples import (
+    GENERATION_JOB_EXAMPLE,
+    RUN_GENERATION_NOW_REQUEST_EXAMPLE,
+    RUN_GENERATION_NOW_RESPONSE_EXAMPLE,
+)
 from app.application.models import GenerationDispatchResult
 from app.domain.entities import GenerationJob
 
@@ -14,7 +19,10 @@ from app.domain.entities import GenerationJob
 class RunGenerationNowRequest(BaseModel):
     """Optional manual generation request payload."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": RUN_GENERATION_NOW_REQUEST_EXAMPLE},
+    )
 
     slot_time_utc: datetime | None = None
 
@@ -33,7 +41,7 @@ class RunGenerationNowRequest(BaseModel):
 class GenerationJobResponse(BaseModel):
     """Serialized generation job response."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"example": GENERATION_JOB_EXAMPLE})
 
     id: UUID
     job_type: str
@@ -67,7 +75,10 @@ class GenerationJobResponse(BaseModel):
 class RunGenerationNowResponse(BaseModel):
     """Response returned from the manual generation endpoint."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": RUN_GENERATION_NOW_RESPONSE_EXAMPLE},
+    )
 
     slot_time_utc: datetime
     job: GenerationJobResponse

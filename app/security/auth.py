@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from hmac import compare_digest
 
-from fastapi import Depends
+from fastapi import Depends, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict
 
@@ -12,7 +12,15 @@ from app.application.exceptions import AuthenticationError, AuthorizationError
 from app.config.settings import Settings, get_settings
 from app.security.safety import build_hashed_safety_identifier
 
-http_bearer_scheme = HTTPBearer(auto_error=False)
+admin_bearer_scheme = HTTPBearer(
+    auto_error=False,
+    scheme_name="AdminBearerAuth",
+    description=(
+        "Bearer token for authenticated admin endpoints. "
+        "Use a token configured through ADMIN_IDENTITIES or ADMIN_BEARER_TOKEN."
+    ),
+    bearerFormat="Opaque token",
+)
 
 
 class AdminIdentity(BaseModel):
@@ -36,7 +44,7 @@ class AdminIdentity(BaseModel):
 
 
 def require_admin_identity(
-    credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Security(admin_bearer_scheme),
     settings: Settings = Depends(get_settings),
 ) -> AdminIdentity:
     """Validate the presented bearer token against configured admin identities."""

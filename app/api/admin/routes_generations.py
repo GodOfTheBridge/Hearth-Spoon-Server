@@ -24,7 +24,7 @@ from app.domain.time import get_current_utc_datetime, normalize_to_hour_slot
 from app.security.auth import AdminIdentity
 
 logger = structlog.get_logger(__name__)
-router = APIRouter(prefix="/admin/generations", tags=["admin-generations"])
+router = APIRouter(prefix="/admin/generations", tags=["admin", "generation"])
 
 
 def _run_generation_in_background(*, generation_service, slot_time_utc, requested_by: str) -> None:

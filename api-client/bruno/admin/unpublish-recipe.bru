@@ -1,0 +1,15 @@
+meta {
+  name: Unpublish Recipe
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/admin/recipes/{{recipeId}}/unpublish
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminToken}}
+}

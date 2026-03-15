@@ -14,7 +14,7 @@ from app.api.schemas.recipe import (
 )
 from app.bootstrap import ApplicationContainer
 
-router = APIRouter(prefix="/recipes", tags=["recipes"])
+router = APIRouter(prefix="/recipes", tags=["public"])
 
 
 @router.get("/latest", response_model=PublicRecipeDetailResponse)
@@ -30,8 +30,19 @@ def get_latest_recipe(
 
 @router.get("/feed", response_model=RecipeFeedResponse)
 def get_recipe_feed(
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    limit: int = Query(
+        default=20,
+        ge=1,
+        le=100,
+        description="Maximum number of published recipes to return.",
+        examples=[20],
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+        description="Zero-based number of published recipes to skip.",
+        examples=[0],
+    ),
     recipe_query_service=Depends(get_recipe_query_service),
     container: ApplicationContainer = Depends(get_container),
 ) -> RecipeFeedResponse:

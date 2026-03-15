@@ -7,6 +7,18 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.api.schemas.examples import (
+    PUBLIC_RECIPE_DETAIL_EXAMPLE,
+    PUBLIC_RECIPE_IMAGE_EXAMPLE,
+    PUBLIC_RECIPE_SUMMARY_EXAMPLE,
+    RECIPE_DETAIL_EXAMPLE,
+    RECIPE_FEED_RESPONSE_EXAMPLE,
+    RECIPE_GENERATION_PARAMETERS_EXAMPLE,
+    RECIPE_IMAGE_EXAMPLE,
+    RECIPE_INGREDIENT_EXAMPLE,
+    RECIPE_STEP_EXAMPLE,
+    RECIPE_SUMMARY_EXAMPLE,
+)
 from app.application.ports.storage import ObjectStorage
 from app.domain.entities import (
     RecipeAggregate,
@@ -20,7 +32,10 @@ from app.domain.entities import (
 class RecipeIngredientResponse(BaseModel):
     """Ingredient response item."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": RECIPE_INGREDIENT_EXAMPLE},
+    )
 
     name: str
     amount: str
@@ -35,7 +50,10 @@ class RecipeIngredientResponse(BaseModel):
 class RecipeStepResponse(BaseModel):
     """Step response item."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": RECIPE_STEP_EXAMPLE},
+    )
 
     step_number: int
     title: str
@@ -52,7 +70,10 @@ class RecipeStepResponse(BaseModel):
 class RecipeGenerationParametersResponse(BaseModel):
     """Generation parameter snapshot stored with a recipe."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": RECIPE_GENERATION_PARAMETERS_EXAMPLE},
+    )
 
     language_code: str
     cuisine_context: str
@@ -73,7 +94,7 @@ class RecipeGenerationParametersResponse(BaseModel):
 class RecipeImageResponse(BaseModel):
     """Recipe image metadata exposed to clients."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"example": RECIPE_IMAGE_EXAMPLE})
 
     id: UUID
     storage_key: str
@@ -110,7 +131,10 @@ class RecipeImageResponse(BaseModel):
 class PublicRecipeImageResponse(BaseModel):
     """Client-safe recipe image metadata exposed to public consumers."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": PUBLIC_RECIPE_IMAGE_EXAMPLE},
+    )
 
     url: str
     width: int | None = None
@@ -137,7 +161,7 @@ class PublicRecipeImageResponse(BaseModel):
 class RecipeSummaryResponse(BaseModel):
     """Recipe summary response for feed endpoints."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"example": RECIPE_SUMMARY_EXAMPLE})
 
     id: UUID
     title: str
@@ -183,7 +207,10 @@ class RecipeSummaryResponse(BaseModel):
 class PublicRecipeSummaryResponse(BaseModel):
     """Client-safe recipe summary for public feed endpoints."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": PUBLIC_RECIPE_SUMMARY_EXAMPLE},
+    )
 
     id: UUID
     title: str
@@ -225,7 +252,7 @@ class PublicRecipeSummaryResponse(BaseModel):
 class RecipeDetailResponse(BaseModel):
     """Detailed recipe response for mobile clients."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"example": RECIPE_DETAIL_EXAMPLE})
 
     id: UUID
     title: str
@@ -292,7 +319,10 @@ class RecipeDetailResponse(BaseModel):
 class PublicRecipeDetailResponse(BaseModel):
     """Client-safe detailed recipe response for public consumers."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": PUBLIC_RECIPE_DETAIL_EXAMPLE},
+    )
 
     id: UUID
     title: str
@@ -345,7 +375,10 @@ class PublicRecipeDetailResponse(BaseModel):
 class RecipeFeedResponse(BaseModel):
     """Public recipe feed payload."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": RECIPE_FEED_RESPONSE_EXAMPLE},
+    )
 
     items: list[PublicRecipeSummaryResponse]
     limit: int

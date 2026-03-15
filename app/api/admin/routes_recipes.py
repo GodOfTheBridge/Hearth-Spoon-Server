@@ -15,7 +15,7 @@ from app.api.schemas.recipe import RecipeDetailResponse
 from app.bootstrap import ApplicationContainer
 from app.security.auth import AdminIdentity
 
-router = APIRouter(prefix="/admin/recipes", tags=["admin-recipes"])
+router = APIRouter(prefix="/admin/recipes", tags=["admin"])
 
 
 @router.post("/{recipe_id}/publish", response_model=RecipeDetailResponse)

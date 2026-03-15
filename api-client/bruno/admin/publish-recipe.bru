@@ -1,0 +1,15 @@
+meta {
+  name: Publish Recipe
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/admin/recipes/{{recipeId}}/publish
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminToken}}
+}

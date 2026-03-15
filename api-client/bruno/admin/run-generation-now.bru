@@ -1,0 +1,22 @@
+meta {
+  name: Run Generation Now
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/admin/generations/run-now
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "slot_time_utc": "{{generationSlotUtc}}"
+  }
+}

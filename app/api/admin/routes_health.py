@@ -18,7 +18,7 @@ def get_readiness(
 ) -> JSONResponse:
     """Return detailed dependency readiness for authenticated operators."""
 
-    health_payload = health_service.check()
+    health_payload = health_service.check_readiness()
     response_model = HealthResponse.model_validate(health_payload)
     response_status_code = (
         status.HTTP_200_OK

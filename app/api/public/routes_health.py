@@ -15,7 +15,7 @@ router = APIRouter(tags=["health"])
 def get_health(health_service=Depends(get_health_service)) -> JSONResponse:
     """Return a shallow public liveness-style health response."""
 
-    health_payload = health_service.check()
+    health_payload = health_service.check_public_liveness()
     response_model = PublicHealthResponse.model_validate(
         {
             "status": health_payload["status"],

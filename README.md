@@ -2,6 +2,8 @@
 
 Production-ready starter backend for the mobile application `ПечьДаЛожка`.
 
+Release gate and VPS rollout checklist: `PRODUCTION_CHECKLIST.md`
+
 ## Архитектура
 
 Проект построен в слоистом стиле с четким разделением ответственности:
@@ -157,6 +159,12 @@ uv run uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
 curl http://localhost:8000/api/v1/health
 ```
 
+Detailed dependency readiness:
+
+```bash
+curl -H "Authorization: Bearer YOUR_ADMIN_TOKEN" http://localhost:8000/api/v1/admin/health/readiness
+```
+
 ## Запуск через Docker Compose
 
 ### Полный stack
@@ -207,6 +215,7 @@ curl -X POST \
 ```
 
 Endpoint now returns `202 Accepted`, creates or reuses a job for the target slot, and runs generation in the background. Poll the job via `GET /api/v1/admin/generations/{job_id}`.
+For the durable production path, prefer the hourly worker CLI under cron.
 
 ### Через CLI
 
@@ -301,6 +310,10 @@ make test
 - добавить moderation pipeline, если recipes будут auto-publish в production
 - добавить TLS termination и secret manager поверх `.env`
 - добавить отдельный Redis/DB readiness monitoring на уровне инфраструктуры
+
+## Production checklist
+
+Перед первым реальным релизом пройдите `PRODUCTION_CHECKLIST.md`.
 
 ## Тесты
 

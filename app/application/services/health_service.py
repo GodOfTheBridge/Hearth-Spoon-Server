@@ -19,8 +19,16 @@ class HealthService:
         self._redis_client = redis_client
         self._object_storage = object_storage
 
-    def check(self) -> dict[str, object]:
-        """Return a structured health payload."""
+    def check_public_liveness(self) -> dict[str, object]:
+        """Return a shallow process-level liveness payload."""
+
+        return {
+            "status": "healthy",
+            "timestamp_utc": get_current_utc_datetime(),
+        }
+
+    def check_readiness(self) -> dict[str, object]:
+        """Return a structured dependency readiness payload."""
 
         component_statuses: dict[str, dict[str, object]] = {}
 

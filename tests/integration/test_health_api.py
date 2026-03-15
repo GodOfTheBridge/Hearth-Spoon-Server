@@ -15,7 +15,13 @@ from tests.fakes.fake_components import NoopAdminRateLimiter
 class FakeHealthService:
     """Simple fake health service."""
 
-    def check(self) -> dict[str, object]:
+    def check_public_liveness(self) -> dict[str, object]:
+        return {
+            "status": "healthy",
+            "timestamp_utc": datetime.now(UTC),
+        }
+
+    def check_readiness(self) -> dict[str, object]:
         return {
             "status": "healthy",
             "timestamp_utc": datetime.now(UTC),

@@ -1,11 +1,11 @@
 meta {
-  name: Publish Recipe
+  name: Admin Readiness
   type: http
-  seq: 4
+  seq: 1
 }
 
-post {
-  url: {{baseUrl}}/api/v1/admin/recipes/{{recipeId}}/publish
+get {
+  url: {{baseUrl}}/api/v1/admin/health/readiness
   body: none
   auth: none
 }

@@ -49,7 +49,35 @@ def test_openapi_metadata_security_and_examples_are_exposed(monkeypatch) -> None
         payload["components"]["schemas"]["RunGenerationNowRequest"]["example"]["slot_time_utc"]
         == "2026-03-15T12:00:00+00:00"
     )
+    run_now_example = payload["components"]["schemas"]["RunGenerationNowResponse"]["example"]
+    assert run_now_example["was_enqueued"] is False
+    assert run_now_example["recipe_id"] == "4145fce8-e4aa-4384-8d0f-c145d43b8341"
+    assert (
+        run_now_example["job"]["status"] == "completed"
+    )
+    assert (
+        run_now_example["message"] == "Generation for this slot has already completed."
+    )
+    health_example = payload["components"]["schemas"]["HealthResponse"]["example"]
+    assert "detail" not in health_example["components"]["database"]
     assert (
         payload["components"]["schemas"]["PublicRecipeDetailResponse"]["example"]["title"]
         == "Сливочная паста с грибами"
     )
+
+
+def test_swagger_persists_authorization_only_in_development(monkeypatch) -> None:
+    """Persisted Swagger auth should stay limited to explicit development mode."""
+
+    monkeypatch.setenv("APP_ENVIRONMENT", "development")
+    monkeypatch.setenv("APP_DEBUG", "false")
+    get_settings.cache_clear()
+    development_app = create_app()
+
+    monkeypatch.setenv("APP_ENVIRONMENT", "production")
+    monkeypatch.setenv("APP_DEBUG", "true")
+    get_settings.cache_clear()
+    debug_app = create_app()
+
+    assert development_app.swagger_ui_parameters["persistAuthorization"] is True
+    assert debug_app.swagger_ui_parameters["persistAuthorization"] is False

@@ -47,7 +47,7 @@ def create_app() -> FastAPI:
         openapi_tags=OPENAPI_TAGS,
         swagger_ui_parameters={
             "displayRequestDuration": True,
-            "persistAuthorization": True,
+            "persistAuthorization": settings.app_environment == "development",
         },
     )
 

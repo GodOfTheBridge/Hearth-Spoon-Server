@@ -28,22 +28,21 @@ RUN_GENERATION_NOW_RESPONSE_EXAMPLE = {
     "slot_time_utc": "2026-03-15T12:00:00+00:00",
     "job": GENERATION_JOB_EXAMPLE,
     "recipe_id": "4145fce8-e4aa-4384-8d0f-c145d43b8341",
-    "was_enqueued": True,
-    "message": "Generation job is running in the background for the requested slot.",
+    "was_enqueued": False,
+    "message": "Generation for this slot has already completed.",
 }
 
 HEALTH_COMPONENT_EXAMPLE = {
     "status": "healthy",
-    "detail": "Dependency is reachable.",
 }
 
 HEALTH_RESPONSE_EXAMPLE = {
     "status": "healthy",
     "timestamp_utc": "2026-03-15T12:00:00+00:00",
     "components": {
-        "database": {"status": "healthy", "detail": "Database connection is healthy."},
-        "redis": {"status": "healthy", "detail": "Redis ping succeeded."},
-        "storage": {"status": "healthy", "detail": "Bucket access check passed."},
+        "database": {"status": "healthy"},
+        "redis": {"status": "healthy"},
+        "storage": {"status": "healthy"},
     },
 }
 

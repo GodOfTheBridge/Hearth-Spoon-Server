@@ -79,5 +79,7 @@ def test_swagger_persists_authorization_only_in_development(monkeypatch) -> None
     get_settings.cache_clear()
     debug_app = create_app()
 
+    assert development_app.swagger_ui_parameters is not None
+    assert debug_app.swagger_ui_parameters is not None
     assert development_app.swagger_ui_parameters["persistAuthorization"] is True
     assert debug_app.swagger_ui_parameters["persistAuthorization"] is False

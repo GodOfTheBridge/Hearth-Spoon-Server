@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
-API_ERROR_EXAMPLE = {
+from typing import TypeAlias
+
+JsonValue: TypeAlias = (
+    str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
+)
+JsonDict: TypeAlias = dict[str, JsonValue]
+
+API_ERROR_EXAMPLE: JsonDict = {
     "detail": "Invalid admin bearer token.",
     "request_id": "f5990f1b0d804bdeac8f0f0c76cd8fc1",
 }
 
-RUN_GENERATION_NOW_REQUEST_EXAMPLE = {
+RUN_GENERATION_NOW_REQUEST_EXAMPLE: JsonDict = {
     "slot_time_utc": "2026-03-15T12:00:00+00:00",
 }
 
-GENERATION_JOB_EXAMPLE = {
+GENERATION_JOB_EXAMPLE: JsonDict = {
     "id": "b6f2fffb-a3aa-4d0d-9dd0-4f9326d16296",
     "job_type": "hourly_recipe_generation",
     "schedule_slot": "2026-03-15T12:00:00+00:00",
@@ -24,7 +31,7 @@ GENERATION_JOB_EXAMPLE = {
     "created_at": "2026-03-15T12:00:04+00:00",
 }
 
-RUN_GENERATION_NOW_RESPONSE_EXAMPLE = {
+RUN_GENERATION_NOW_RESPONSE_EXAMPLE: JsonDict = {
     "slot_time_utc": "2026-03-15T12:00:00+00:00",
     "job": GENERATION_JOB_EXAMPLE,
     "recipe_id": "4145fce8-e4aa-4384-8d0f-c145d43b8341",
@@ -32,11 +39,11 @@ RUN_GENERATION_NOW_RESPONSE_EXAMPLE = {
     "message": "Generation for this slot has already completed.",
 }
 
-HEALTH_COMPONENT_EXAMPLE = {
+HEALTH_COMPONENT_EXAMPLE: JsonDict = {
     "status": "healthy",
 }
 
-HEALTH_RESPONSE_EXAMPLE = {
+HEALTH_RESPONSE_EXAMPLE: JsonDict = {
     "status": "healthy",
     "timestamp_utc": "2026-03-15T12:00:00+00:00",
     "components": {
@@ -46,19 +53,19 @@ HEALTH_RESPONSE_EXAMPLE = {
     },
 }
 
-PUBLIC_HEALTH_RESPONSE_EXAMPLE = {
+PUBLIC_HEALTH_RESPONSE_EXAMPLE: JsonDict = {
     "status": "healthy",
     "timestamp_utc": "2026-03-15T12:00:00+00:00",
 }
 
-RECIPE_INGREDIENT_EXAMPLE = {
+RECIPE_INGREDIENT_EXAMPLE: JsonDict = {
     "name": "Спагетти",
     "amount": "250",
     "unit": "г",
     "notes": "Из твердых сортов пшеницы.",
 }
 
-RECIPE_STEP_EXAMPLE = {
+RECIPE_STEP_EXAMPLE: JsonDict = {
     "step_number": 1,
     "title": "Подготовьте пасту",
     "description": "Отварите пасту в подсоленной воде до состояния al dente.",
@@ -67,7 +74,7 @@ RECIPE_STEP_EXAMPLE = {
     "warnings": ["Не переварите пасту."],
 }
 
-RECIPE_GENERATION_PARAMETERS_EXAMPLE = {
+RECIPE_GENERATION_PARAMETERS_EXAMPLE: JsonDict = {
     "language_code": "ru-RU",
     "cuisine_context": "modern home cooking",
     "dietary_context": "balanced",
@@ -77,7 +84,7 @@ RECIPE_GENERATION_PARAMETERS_EXAMPLE = {
     "maximum_steps": 8,
 }
 
-RECIPE_IMAGE_EXAMPLE = {
+RECIPE_IMAGE_EXAMPLE: JsonDict = {
     "id": "aa10a866-b936-4180-86a7-65b1865f7f1c",
     "storage_key": "recipes/2026/03/15/creamy-mushroom-pasta.png",
     "url": "https://cdn.example.test/recipes/2026/03/15/creamy-mushroom-pasta.png",
@@ -89,14 +96,14 @@ RECIPE_IMAGE_EXAMPLE = {
     "created_at": "2026-03-15T12:00:28+00:00",
 }
 
-PUBLIC_RECIPE_IMAGE_EXAMPLE = {
+PUBLIC_RECIPE_IMAGE_EXAMPLE: JsonDict = {
     "url": "https://cdn.example.test/recipes/2026/03/15/creamy-mushroom-pasta.png",
     "width": 1024,
     "height": 1024,
     "mime_type": "image/png",
 }
 
-RECIPE_SUMMARY_EXAMPLE = {
+RECIPE_SUMMARY_EXAMPLE: JsonDict = {
     "id": "4145fce8-e4aa-4384-8d0f-c145d43b8341",
     "title": "Сливочная паста с грибами",
     "subtitle": "Быстрый домашний ужин на каждый день",
@@ -112,7 +119,7 @@ RECIPE_SUMMARY_EXAMPLE = {
     "image": RECIPE_IMAGE_EXAMPLE,
 }
 
-PUBLIC_RECIPE_SUMMARY_EXAMPLE = {
+PUBLIC_RECIPE_SUMMARY_EXAMPLE: JsonDict = {
     "id": "4145fce8-e4aa-4384-8d0f-c145d43b8341",
     "title": "Сливочная паста с грибами",
     "subtitle": "Быстрый домашний ужин на каждый день",
@@ -126,7 +133,7 @@ PUBLIC_RECIPE_SUMMARY_EXAMPLE = {
     "image": PUBLIC_RECIPE_IMAGE_EXAMPLE,
 }
 
-RECIPE_DETAIL_EXAMPLE = {
+RECIPE_DETAIL_EXAMPLE: JsonDict = {
     "id": "4145fce8-e4aa-4384-8d0f-c145d43b8341",
     "title": "Сливочная паста с грибами",
     "subtitle": "Быстрый домашний ужин на каждый день",
@@ -169,7 +176,7 @@ RECIPE_DETAIL_EXAMPLE = {
     "image": RECIPE_IMAGE_EXAMPLE,
 }
 
-PUBLIC_RECIPE_DETAIL_EXAMPLE = {
+PUBLIC_RECIPE_DETAIL_EXAMPLE: JsonDict = {
     "id": "4145fce8-e4aa-4384-8d0f-c145d43b8341",
     "title": "Сливочная паста с грибами",
     "subtitle": "Быстрый домашний ужин на каждый день",
@@ -188,7 +195,7 @@ PUBLIC_RECIPE_DETAIL_EXAMPLE = {
     "image": PUBLIC_RECIPE_IMAGE_EXAMPLE,
 }
 
-RECIPE_FEED_RESPONSE_EXAMPLE = {
+RECIPE_FEED_RESPONSE_EXAMPLE: JsonDict = {
     "items": [
         PUBLIC_RECIPE_SUMMARY_EXAMPLE,
         {

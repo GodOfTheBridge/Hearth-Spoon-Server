@@ -109,6 +109,7 @@ def create_app() -> FastAPI:
 
     if is_docs_enabled:
         swagger_ui_parameters = dict(application.swagger_ui_parameters or {})
+        swagger_ui_parameters["layout"] = "StandaloneLayout"
         swagger_ui_parameters["urls"] = [
             {
                 "url": get_openapi_document_url(DEFAULT_OPENAPI_LANGUAGE),

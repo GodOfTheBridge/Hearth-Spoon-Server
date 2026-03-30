@@ -26,6 +26,8 @@ def test_docs_and_redoc_are_available_in_development(monkeypatch) -> None:
     assert docs_response.status_code == 200
     assert "Swagger UI" in docs_response.text
     assert "English" in docs_response.text
+    assert "StandaloneLayout" in docs_response.text
+    assert "BaseLayout" not in docs_response.text
     assert "urls.primaryName" in docs_response.text
     assert "urlsPrimaryName" not in docs_response.text
     assert "/openapi.ru.json" in docs_response.text

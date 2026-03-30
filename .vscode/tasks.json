@@ -1,0 +1,95 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Infra",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "docker-compose.yml",
+        "-f",
+        "docker-compose.dev.yml",
+        "up",
+        "-d",
+        "postgres",
+        "redis",
+        "minio",
+        "minio-init",
+        "migrate"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Stop Infra",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "docker-compose.yml",
+        "-f",
+        "docker-compose.dev.yml",
+        "stop",
+        "postgres",
+        "redis",
+        "minio",
+        "minio-init",
+        "migrate"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Logs Infra",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "docker-compose.yml",
+        "-f",
+        "docker-compose.dev.yml",
+        "logs",
+        "-f",
+        "postgres",
+        "redis",
+        "minio",
+        "minio-init",
+        "migrate"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run API Reload",
+      "type": "process",
+      "command": "uv",
+      "args": [
+        "run",
+        "--env-file",
+        ".env.local",
+        "uvicorn",
+        "app.main:create_app",
+        "--factory",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -18,6 +18,7 @@ build/
 .idea/
 .vscode/*
 !.vscode/launch.json
+!.vscode/tasks.json
 .python-version
 alembic/versions/*.pyc
 minio-data/

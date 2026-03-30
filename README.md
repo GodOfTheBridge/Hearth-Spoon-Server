@@ -137,6 +137,13 @@ cp .env.local.example .env.local
 
 Для локальной разработки со Swagger/ReDoc используйте `APP_ENVIRONMENT=development`. В `.env.local.example` это уже выставлено.
 
+Важно: `.env` и `.env.local` должны быть согласованы по общим секретам и параметрам инфраструктуры.
+
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` должны совпадать.
+- `REDIS_PASSWORD` и параметры внутри `REDIS_URL` должны совпадать по паролю и DB index; отличается только host: в `.env` это `redis`, в `.env.local` это `127.0.0.1`.
+- `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME` должны совпадать; отличаются только endpoint hostnames.
+- Если эти значения расходятся, локальный API на хосте не сможет подключиться к Docker-инфраструктуре.
+
 Поведение storage URL:
 
 - `S3_ENDPOINT_URL` is used by the backend for internal uploads
@@ -159,7 +166,38 @@ MinIO S3 access по умолчанию привязан к loopback через 
 
 ### Local Development
 
-#### Вариант A. API в Docker с hot reload
+#### Рекомендуемый быстрый цикл: infra в Docker, API локально
+
+```bash
+uv sync --group dev
+make dev-up-infra
+make run-api-reload
+```
+
+Для запуска под debugger используйте конфигурацию VS Code `API: uvicorn --reload`, которая читает `.env.local`.
+В VS Code те же действия доступны как tasks: `Start Infra`, `Stop Infra`, `Logs Infra`, `Run API Reload`.
+Это особенно удобно на Windows, если GNU Make не установлен.
+
+Полезные команды для этого режима:
+
+- `make dev-up-infra` — поднять только `postgres`, `redis`, `minio`, `minio-init`, `migrate`.
+- `make dev-down-infra` — остановить только инфраструктурные сервисы.
+- `make dev-logs-infra` — посмотреть логи только инфраструктуры.
+- `make dev-migrate-local` — прогнать Alembic локально с `.env.local`.
+- `make run-api-reload` — запустить локальный API через `uvicorn --reload`.
+
+#### Что изменилось -> что нужно сделать
+
+| Что изменилось | Что сделать в рекомендуемом режиме | Что точно не нужно обещать |
+| --- | --- | --- |
+| Python-код в `app/` | Ничего дополнительно: `uvicorn --reload` подхватит изменения автоматически. | `uv sync` и rebuild image не нужны. |
+| `.env.local` | Перезапустить локальный API: заново выполнить `make run-api-reload` или перезапустить конфигурацию VS Code. | Hot reload env не подхватывает сам по себе. |
+| `.env` | Обновить связанные значения в `.env.local`, затем перезапустить infra через `make dev-down-infra` и `make dev-up-infra`. Если изменились параметры, которые читает локальный API, перезапустить и его. | Rebuild image не нужен, если менялись только env-значения. |
+| `alembic/` и миграции | Выполнить `make dev-migrate-local`. Если параллельно менялся код в `app/`, `--reload` подхватит его отдельно. | Не нужно пересобирать image только из-за новых migration files при локальном запуске с хоста. |
+| `pyproject.toml` или `uv.lock` | Выполнить `uv sync --group dev`, затем перезапустить локальный API. Если после этого хотите заново запускать compose-сервис `migrate`, пересоберите его image перед следующим `dev-up-infra`. | Hot reload не устанавливает новые зависимости. |
+| `Dockerfile.*`, `docker-compose*.yml`, системные пакеты образа | Для рекомендуемого режима: остановить infra, затем выполнить `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d postgres redis minio minio-init migrate`, после чего перезапустить локальный API. Для полного dev-стека можно просто использовать `make dev-up`. | Нельзя рассчитывать, что такие изменения подхватятся без rebuild image. |
+
+#### Альтернатива: API в Docker с hot reload
 
 ```bash
 make dev-up
@@ -167,24 +205,13 @@ make dev-logs
 ```
 
 `docker-compose.dev.yml` добавляет bind mount для `./app`, публикует `127.0.0.1:8000`, `127.0.0.1:5432` и `127.0.0.1:6379`, а `api` запускает `uvicorn --reload`.
-Обычные изменения Python-кода в `app/` подхватываются без rebuild. Пересборка нужна только если меняются зависимости, `Dockerfile.*` или системные пакеты образа.
+Обычные изменения Python-кода в `app/` подхватываются без rebuild. Пересборка всё равно нужна, если меняются зависимости, `Dockerfile.*`, `docker-compose*.yml` или системные пакеты образа.
 
-Остановить dev-стек:
+Остановить полный dev-стек:
 
 ```bash
 make dev-down
 ```
-
-#### Вариант B. API локально из VS Code или терминала
-
-```bash
-uv sync --group dev
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis minio minio-init migrate
-make run-api-reload
-```
-
-Для запуска под debugger используйте конфигурацию VS Code `API: uvicorn --reload`, которая читает `.env.local`.
-Если нужно отдельно догнать миграции с хоста, используйте `uv run --env-file .env.local alembic upgrade head`.
 
 ### Проверить health
 

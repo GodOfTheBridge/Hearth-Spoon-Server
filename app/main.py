@@ -119,7 +119,9 @@ def create_app() -> FastAPI:
                 "name": OPENAPI_LANGUAGE_LABELS["en"],
             },
         ]
-        swagger_ui_parameters["urlsPrimaryName"] = OPENAPI_LANGUAGE_LABELS[DEFAULT_OPENAPI_LANGUAGE]
+        swagger_ui_parameters["urls.primaryName"] = OPENAPI_LANGUAGE_LABELS[
+            DEFAULT_OPENAPI_LANGUAGE
+        ]
 
         @application.get("/openapi.json", include_in_schema=False)
         def get_openapi_json(

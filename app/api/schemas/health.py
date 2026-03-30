@@ -1,10 +1,10 @@
-"""Health endpoint schemas."""
+"""Схемы эндпоинтов проверки состояния."""
 
 from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.schemas.examples import (
     HEALTH_COMPONENT_EXAMPLE,
@@ -14,37 +14,42 @@ from app.api.schemas.examples import (
 
 
 class HealthComponentResponse(BaseModel):
-    """Per-component health status."""
+    """Статус отдельного компонента инфраструктуры."""
 
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={"example": HEALTH_COMPONENT_EXAMPLE},
     )
 
-    status: str
-    detail: str | None = None
+    status: str = Field(description="Статус конкретного компонента.")
+    detail: str | None = Field(
+        default=None,
+        description="Дополнительная диагностическая информация, если она доступна.",
+    )
 
 
 class HealthResponse(BaseModel):
-    """Top-level health response."""
+    """Верхнеуровневый ответ о готовности сервиса."""
 
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={"example": HEALTH_RESPONSE_EXAMPLE},
     )
 
-    status: str
-    timestamp_utc: datetime
-    components: dict[str, HealthComponentResponse]
+    status: str = Field(description="Общий статус готовности сервиса.")
+    timestamp_utc: datetime = Field(description="Время формирования ответа в UTC.")
+    components: dict[str, HealthComponentResponse] = Field(
+        description="Статусы отдельных зависимостей и компонентов."
+    )
 
 
 class PublicHealthResponse(BaseModel):
-    """Shallow public health response."""
+    """Укороченный публичный ответ о доступности сервиса."""
 
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={"example": PUBLIC_HEALTH_RESPONSE_EXAMPLE},
     )
 
-    status: str
-    timestamp_utc: datetime
+    status: str = Field(description="Публичный статус доступности сервиса.")
+    timestamp_utc: datetime = Field(description="Время формирования ответа в UTC.")

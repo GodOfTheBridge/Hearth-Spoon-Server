@@ -1,4 +1,4 @@
-"""Recipe API schemas and mappers."""
+"""API-схемы рецептов и преобразование доменных моделей."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ from app.domain.entities import (
 
 
 class RecipeIngredientResponse(BaseModel):
-    """Ingredient response item."""
+    """Схема ингредиента в ответе API."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -48,7 +48,7 @@ class RecipeIngredientResponse(BaseModel):
 
 
 class RecipeStepResponse(BaseModel):
-    """Step response item."""
+    """Схема шага рецепта в ответе API."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -68,7 +68,7 @@ class RecipeStepResponse(BaseModel):
 
 
 class RecipeGenerationParametersResponse(BaseModel):
-    """Generation parameter snapshot stored with a recipe."""
+    """Снимок параметров генерации, сохраненных вместе с рецептом."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -92,7 +92,7 @@ class RecipeGenerationParametersResponse(BaseModel):
 
 
 class RecipeImageResponse(BaseModel):
-    """Recipe image metadata exposed to clients."""
+    """Метаданные изображения рецепта, доступные клиентам."""
 
     model_config = ConfigDict(extra="forbid", json_schema_extra={"example": RECIPE_IMAGE_EXAMPLE})
 
@@ -129,7 +129,7 @@ class RecipeImageResponse(BaseModel):
 
 
 class PublicRecipeImageResponse(BaseModel):
-    """Client-safe recipe image metadata exposed to public consumers."""
+    """Клиентобезопасные метаданные изображения рецепта для публичного API."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -159,7 +159,7 @@ class PublicRecipeImageResponse(BaseModel):
 
 
 class RecipeSummaryResponse(BaseModel):
-    """Recipe summary response for feed endpoints."""
+    """Краткий ответ с рецептом для ленты и административных списков."""
 
     model_config = ConfigDict(extra="forbid", json_schema_extra={"example": RECIPE_SUMMARY_EXAMPLE})
 
@@ -205,7 +205,7 @@ class RecipeSummaryResponse(BaseModel):
 
 
 class PublicRecipeSummaryResponse(BaseModel):
-    """Client-safe recipe summary for public feed endpoints."""
+    """Клиентобезопасная краткая схема рецепта для публичной ленты."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -250,7 +250,7 @@ class PublicRecipeSummaryResponse(BaseModel):
 
 
 class RecipeDetailResponse(BaseModel):
-    """Detailed recipe response for mobile clients."""
+    """Подробная схема рецепта для административного и внутреннего API."""
 
     model_config = ConfigDict(extra="forbid", json_schema_extra={"example": RECIPE_DETAIL_EXAMPLE})
 
@@ -317,7 +317,7 @@ class RecipeDetailResponse(BaseModel):
 
 
 class PublicRecipeDetailResponse(BaseModel):
-    """Client-safe detailed recipe response for public consumers."""
+    """Клиентобезопасная подробная схема рецепта для публичного API."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -373,7 +373,7 @@ class PublicRecipeDetailResponse(BaseModel):
 
 
 class RecipeFeedResponse(BaseModel):
-    """Public recipe feed payload."""
+    """Ответ с лентой опубликованных рецептов."""
 
     model_config = ConfigDict(
         extra="forbid",

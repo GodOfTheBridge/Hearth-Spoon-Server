@@ -1,11 +1,11 @@
-"""Admin generation endpoints."""
+"""Административные эндпоинты генерации."""
 
 from __future__ import annotations
 
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, Path, status
 from fastapi.responses import JSONResponse
 
 from app.api.dependencies import (
@@ -24,7 +24,7 @@ from app.domain.time import get_current_utc_datetime, normalize_to_hour_slot
 from app.security.auth import AdminIdentity
 
 logger = structlog.get_logger(__name__)
-router = APIRouter(prefix="/admin/generations", tags=["admin", "generation"])
+router = APIRouter(prefix="/admin/generations", tags=["Администрирование", "Генерация"])
 
 
 def _run_generation_in_background(*, generation_service, slot_time_utc, requested_by: str) -> None:
@@ -51,14 +51,24 @@ def _run_generation_in_background(*, generation_service, slot_time_utc, requeste
     "/run-now",
     response_model=RunGenerationNowResponse,
     status_code=status.HTTP_202_ACCEPTED,
+    summary="Запустить генерацию сейчас",
+    description=(
+        "Подготавливает и, если требуется, запускает генерацию "
+        "для текущего часового слота или переданного времени UTC."
+    ),
+    response_description="Статус постановки задания генерации.",
 )
 def run_generation_now(
     background_tasks: BackgroundTasks,
-    request_payload: RunGenerationNowRequest | None = None,
+    request_payload: RunGenerationNowRequest | None = Body(
+        default=None,
+        title="Параметры запуска",
+        description="Необязательные параметры ручного запуска генерации.",
+    ),
     admin_identity: AdminIdentity = Depends(require_admin_write_access),
     generation_service=Depends(get_generation_service),
 ) -> JSONResponse:
-    """Trigger generation immediately for the current or provided slot."""
+    """Запускает генерацию для текущего или явно переданного часового слота."""
 
     requested_by = f"admin:{admin_identity.actor_id}"
     if request_payload and request_payload.slot_time_utc is not None:
@@ -87,13 +97,19 @@ def run_generation_now(
     )
 
 
-@router.get("/{job_id}", response_model=GenerationJobResponse)
+@router.get(
+    "/{job_id}",
+    response_model=GenerationJobResponse,
+    summary="Получить статус задания генерации",
+    description="Возвращает текущее состояние задания генерации по его идентификатору.",
+    response_description="Текущее состояние задания генерации.",
+)
 def get_generation_job(
-    job_id: UUID,
+    job_id: UUID = Path(description="Идентификатор задания генерации."),
     admin_identity: AdminIdentity = Depends(require_admin_read_access),
     generation_query_service=Depends(get_generation_query_service),
 ) -> GenerationJobResponse:
-    """Return the status of a generation job."""
+    """Возвращает состояние задания генерации."""
 
     _ = admin_identity
     generation_job = generation_query_service.get_job_by_id(job_id)

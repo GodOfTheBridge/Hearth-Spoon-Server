@@ -1,4 +1,4 @@
-"""Admin authentication and coarse-grained authorization helpers."""
+"""Вспомогательные функции аутентификации и грубой авторизации администратора."""
 
 from __future__ import annotations
 
@@ -16,10 +16,10 @@ admin_bearer_scheme = HTTPBearer(
     auto_error=False,
     scheme_name="AdminBearerAuth",
     description=(
-        "Bearer token for authenticated admin endpoints. "
-        "Use a token configured through ADMIN_IDENTITIES or ADMIN_BEARER_TOKEN."
+        "Bearer-токен для доступа к административным эндпоинтам. "
+        "Используйте токен, настроенный через ADMIN_IDENTITIES или ADMIN_BEARER_TOKEN."
     ),
-    bearerFormat="Opaque token",
+    bearerFormat="Непрозрачный токен",
 )
 
 

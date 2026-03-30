@@ -1,11 +1,11 @@
-"""Generation-related API schemas."""
+"""API-схемы, связанные с генерацией."""
 
 from __future__ import annotations
 
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.api.schemas.examples import (
     GENERATION_JOB_EXAMPLE,
@@ -17,14 +17,20 @@ from app.domain.entities import GenerationJob
 
 
 class RunGenerationNowRequest(BaseModel):
-    """Optional manual generation request payload."""
+    """Необязательное тело запроса для ручного запуска генерации."""
 
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={"example": RUN_GENERATION_NOW_REQUEST_EXAMPLE},
     )
 
-    slot_time_utc: datetime | None = None
+    slot_time_utc: datetime | None = Field(
+        default=None,
+        description=(
+            "UTC-время часового слота, для которого нужно запустить генерацию. "
+            "Если не указано, используется текущий UTC-час."
+        ),
+    )
 
     @field_validator("slot_time_utc")
     @classmethod
@@ -39,20 +45,33 @@ class RunGenerationNowRequest(BaseModel):
 
 
 class GenerationJobResponse(BaseModel):
-    """Serialized generation job response."""
+    """Сериализованный ответ со статусом задания генерации."""
 
     model_config = ConfigDict(extra="forbid", json_schema_extra={"example": GENERATION_JOB_EXAMPLE})
 
-    id: UUID
-    job_type: str
-    schedule_slot: datetime
-    idempotency_key: str
-    status: str
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    error_message: str | None = None
-    retry_count: int
-    created_at: datetime
+    id: UUID = Field(description="Идентификатор задания генерации.")
+    job_type: str = Field(description="Тип задания генерации.")
+    schedule_slot: datetime = Field(
+        description="UTC-время часового слота, к которому относится задание."
+    )
+    idempotency_key: str = Field(
+        description="Идемпотентный ключ, защищающий от повторного запуска."
+    )
+    status: str = Field(description="Текущее состояние задания генерации.")
+    started_at: datetime | None = Field(
+        default=None,
+        description="Время начала выполнения задания в UTC.",
+    )
+    finished_at: datetime | None = Field(
+        default=None,
+        description="Время завершения задания в UTC.",
+    )
+    error_message: str | None = Field(
+        default=None,
+        description="Текст ошибки, если задание завершилось неуспешно.",
+    )
+    retry_count: int = Field(description="Количество повторных попыток выполнения.")
+    created_at: datetime = Field(description="Время создания задания в UTC.")
 
     @classmethod
     def from_domain(cls, generation_job: GenerationJob) -> GenerationJobResponse:
@@ -73,18 +92,25 @@ class GenerationJobResponse(BaseModel):
 
 
 class RunGenerationNowResponse(BaseModel):
-    """Response returned from the manual generation endpoint."""
+    """Ответ эндпоинта ручного запуска генерации."""
 
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={"example": RUN_GENERATION_NOW_RESPONSE_EXAMPLE},
     )
 
-    slot_time_utc: datetime
-    job: GenerationJobResponse
-    recipe_id: UUID | None = None
-    was_enqueued: bool
-    message: str
+    slot_time_utc: datetime = Field(
+        description="UTC-время часового слота, для которого обработан запрос."
+    )
+    job: GenerationJobResponse = Field(description="Текущее состояние задания генерации.")
+    recipe_id: UUID | None = Field(
+        default=None,
+        description="Идентификатор рецепта, если он уже был создан.",
+    )
+    was_enqueued: bool = Field(
+        description="Признак того, что выполнение было поставлено в фоновую очередь."
+    )
+    message: str = Field(description="Человекочитаемое пояснение результата постановки задания.")
 
     @classmethod
     def from_result(cls, result: GenerationDispatchResult) -> RunGenerationNowResponse:

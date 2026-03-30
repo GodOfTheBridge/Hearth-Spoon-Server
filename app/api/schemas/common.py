@@ -1,4 +1,4 @@
-"""Shared API schemas."""
+"""Общие API-схемы."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from app.api.schemas.examples import API_ERROR_EXAMPLE
 
 
 class ApiErrorResponse(BaseModel):
-    """Standardized API error payload."""
+    """Стандартизированная схема ошибки API."""
 
     model_config = ConfigDict(extra="forbid", json_schema_extra={"example": API_ERROR_EXAMPLE})
 

@@ -172,6 +172,9 @@ Update documentation when your change affects:
 - deployment flow;
 - security assumptions.
 
+Write repository documentation, operator instructions, and OpenAPI/Swagger descriptions in Russian by default.
+Use English only when an external contract, third-party interface, or required identifier explicitly needs it.
+
 At minimum, consider whether `README.md` and `ARCHITECTURE.md` need updates.
 
 ---

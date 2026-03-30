@@ -1,4 +1,4 @@
-"""Public health endpoint."""
+"""Публичный эндпоинт проверки доступности."""
 
 from __future__ import annotations
 
@@ -8,12 +8,21 @@ from fastapi.responses import JSONResponse
 from app.api.dependencies import get_health_service
 from app.api.schemas.health import PublicHealthResponse
 
-router = APIRouter(tags=["health"])
+router = APIRouter(tags=["Состояние сервиса"])
 
 
-@router.get("/health", response_model=PublicHealthResponse)
+@router.get(
+    "/health",
+    response_model=PublicHealthResponse,
+    summary="Проверить доступность API",
+    description=(
+        "Возвращает укороченный публичный статус сервиса "
+        "без деталей внутренних зависимостей."
+    ),
+    response_description="Публичный статус доступности API.",
+)
 def get_health(health_service=Depends(get_health_service)) -> JSONResponse:
-    """Return a shallow public liveness-style health response."""
+    """Возвращает укороченный публичный статус доступности сервиса."""
 
     health_payload = health_service.check_public_liveness()
     response_model = PublicHealthResponse.model_validate(

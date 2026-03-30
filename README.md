@@ -175,21 +175,28 @@ curl -H "Authorization: Bearer YOUR_ADMIN_TOKEN" http://localhost:8000/api/v1/ad
 Swagger UI, ReDoc и `openapi.json` доступны, когда приложение запущено с `APP_ENVIRONMENT=development`
 или `APP_DEBUG=true`.
 
+Swagger UI на `/docs` показывает selector со схемами `Русский` и `English`.
+Для прямого получения схемы используйте `openapi.json?lang=ru` или `openapi.json?lang=en`.
+
 При локальном запуске через `uvicorn` используйте:
 
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 - OpenAPI JSON: `http://localhost:8000/openapi.json`
+- OpenAPI JSON RU: `http://localhost:8000/openapi.ru.json`
+- OpenAPI JSON EN: `http://localhost:8000/openapi.en.json`
 
 При запуске через `docker compose up --build` те же URL будут доступны через Nginx:
 
 - Swagger UI: `http://localhost/docs`
 - ReDoc: `http://localhost/redoc`
 - OpenAPI JSON: `http://localhost/openapi.json`
+- OpenAPI JSON RU: `http://localhost/openapi.ru.json`
+- OpenAPI JSON EN: `http://localhost/openapi.en.json`
 
 ### 8. Использовать Bearer token в Swagger
 
-1. Откройте `/docs`.
+1. Откройте `/docs` и при необходимости выберите язык в selector `Русский` / `English`.
 2. Нажмите `Authorize`.
 3. Вставьте только значение admin token без префикса `Bearer`.
 4. Нажмите `Authorize`, затем `Close`.

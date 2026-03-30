@@ -17,6 +17,7 @@ def test_docs_and_redoc_are_available_in_development(monkeypatch) -> None:
 
     with TestClient(application) as client:
         docs_response = client.get("/docs")
+        docs_en_response = client.get("/docs?lang=en")
         redoc_response = client.get("/redoc")
         redoc_en_response = client.get("/redoc?lang=en")
         openapi_response = client.get("/openapi.json")
@@ -24,14 +25,13 @@ def test_docs_and_redoc_are_available_in_development(monkeypatch) -> None:
         openapi_en_response = client.get("/openapi.en.json")
 
     assert docs_response.status_code == 200
+    assert docs_en_response.status_code == 200
     assert "Swagger UI" in docs_response.text
-    assert "English" in docs_response.text
-    assert "StandaloneLayout" in docs_response.text
-    assert "BaseLayout" not in docs_response.text
-    assert "urls.primaryName" in docs_response.text
-    assert "urlsPrimaryName" not in docs_response.text
+    assert "/docs?lang=ru" in docs_response.text
+    assert "/docs?lang=en" in docs_response.text
     assert "/openapi.ru.json" in docs_response.text
-    assert "/openapi.en.json" in docs_response.text
+    assert "/openapi.en.json" not in docs_response.text
+    assert "/openapi.en.json" in docs_en_response.text
     assert redoc_response.status_code == 200
     assert redoc_en_response.status_code == 200
     assert "ReDoc" in redoc_response.text

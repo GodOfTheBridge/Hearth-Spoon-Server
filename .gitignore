@@ -6,6 +6,7 @@ __pycache__/
 htmlcov/
 .venv/
 .env
+.env.local
 dist/
 build/
 *.pyc
@@ -15,7 +16,8 @@ build/
 *.log
 .DS_Store
 .idea/
-.vscode/
+.vscode/*
+!.vscode/launch.json
 .python-version
 alembic/versions/*.pyc
 minio-data/

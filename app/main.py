@@ -8,12 +8,12 @@ from copy import deepcopy
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import HTMLResponse
 
 from app.api.errors import register_exception_handlers
 from app.api.openapi import (
     DEFAULT_OPENAPI_LANGUAGE,
     OPENAPI_DESCRIPTION,
-    OPENAPI_LANGUAGE_LABELS,
     OPENAPI_TAGS,
     get_application_version,
     localize_generated_openapi_terms,
@@ -108,22 +108,6 @@ def create_app() -> FastAPI:
     application.openapi = custom_openapi  # type: ignore[method-assign]
 
     if is_docs_enabled:
-        swagger_ui_parameters = dict(application.swagger_ui_parameters or {})
-        swagger_ui_parameters["layout"] = "StandaloneLayout"
-        swagger_ui_parameters["urls"] = [
-            {
-                "url": get_openapi_document_url(DEFAULT_OPENAPI_LANGUAGE),
-                "name": OPENAPI_LANGUAGE_LABELS[DEFAULT_OPENAPI_LANGUAGE],
-            },
-            {
-                "url": get_openapi_document_url("en"),
-                "name": OPENAPI_LANGUAGE_LABELS["en"],
-            },
-        ]
-        swagger_ui_parameters["urls.primaryName"] = OPENAPI_LANGUAGE_LABELS[
-            DEFAULT_OPENAPI_LANGUAGE
-        ]
-
         @application.get("/openapi.json", include_in_schema=False)
         def get_openapi_json(
             lang: str = Query(default=DEFAULT_OPENAPI_LANGUAGE),
@@ -139,12 +123,44 @@ def create_app() -> FastAPI:
             return get_localized_openapi_schema("en")
 
         @application.get("/docs", include_in_schema=False)
-        def get_swagger_ui() -> object:
-            return get_swagger_ui_html(
-                openapi_url=get_openapi_document_url(DEFAULT_OPENAPI_LANGUAGE),
-                title=f"{application.title} - Swagger UI",
-                swagger_ui_parameters=swagger_ui_parameters,
+        def get_swagger_ui(
+            lang: str = Query(default=DEFAULT_OPENAPI_LANGUAGE),
+        ) -> HTMLResponse:
+            normalized_language = normalize_openapi_language(lang)
+            active_ru_style = (
+                "background:#111827;color:#fff;border-color:#111827;"
+                if normalized_language == "ru"
+                else "background:#fff;color:#111827;border-color:#d1d5db;"
             )
+            active_en_style = (
+                "background:#111827;color:#fff;border-color:#111827;"
+                if normalized_language == "en"
+                else "background:#fff;color:#111827;border-color:#d1d5db;"
+            )
+            switcher_html = (
+                "<div style=\"position:fixed;top:12px;right:16px;z-index:9999;"
+                "display:flex;gap:8px;align-items:center;padding:8px 10px;"
+                "background:rgba(255,255,255,.96);border:1px solid #e5e7eb;"
+                "border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.08);"
+                "font-family:Arial,sans-serif;font-size:12px;\">"
+                "<span style=\"color:#6b7280;\">Docs</span>"
+                f"<a href=\"/docs?lang=ru\" style=\"text-decoration:none;padding:4px 10px;"
+                f"border:1px solid;border-radius:999px;{active_ru_style}\">RU</a>"
+                f"<a href=\"/docs?lang=en\" style=\"text-decoration:none;padding:4px 10px;"
+                f"border:1px solid;border-radius:999px;{active_en_style}\">EN</a>"
+                "</div>"
+            )
+            swagger_response = get_swagger_ui_html(
+                openapi_url=get_openapi_document_url(normalized_language),
+                title=f"{application.title} - Swagger UI",
+                swagger_ui_parameters=dict(application.swagger_ui_parameters or {}),
+            )
+            html = swagger_response.body.decode("utf-8").replace(
+                "<body>",
+                f"<body>{switcher_html}",
+                1,
+            )
+            return HTMLResponse(content=html, status_code=swagger_response.status_code)
 
         @application.get("/redoc", include_in_schema=False)
         def get_redoc(
